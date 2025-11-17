@@ -14,66 +14,76 @@ class PagoService:
     """Servicio para gestión de pagos con validaciones"""
     
     @staticmethod
-    def registrar_pago(id_reserva: int, monto: float, metodo_pago: str,
-                      comprobante: str = "") -> Tuple[bool, str, Optional[Pago]]:
+    def registrar_pago(
+        id_reserva: int,
+        monto: float,
+        metodo_pago: str,
+        comprobante: str = ""
+    ) -> Tuple[bool, str, Optional[Pago]]:
         """
         Registra un nuevo pago para una reserva.
-        
-        Args:
-            id_reserva: ID de la reserva
-            monto: Monto del pago
-            metodo_pago: Método de pago
-            comprobante: Número de comprobante
-        
+
         Returns:
-            Tuple (éxito, mensaje, pago)
+            (exito, mensaje, pago_creado | None)
         """
-        # Validar que la reserva existe
+        # Buscar reserva
         reserva = ReservaDAO.obtener_por_id(id_reserva)
         if not reserva:
             return False, "Reserva no encontrada", None
-        
-        # Validar que la reserva no esté cancelada
-        if reserva.estado_reserva == 'cancelada':
+
+        # No permitir pagar reservas canceladas
+        if reserva.estado_reserva == "cancelada":
             return False, "No se puede pagar una reserva cancelada", None
-        
+
+        # Métodos permitidos a nivel de negocio
+        metodos_validos = [
+            "efectivo",
+            "transferencia",
+            "tarjeta_debito",
+            "tarjeta_credito",
+            "pago_online",          # <- NUEVO
+        ]
+        if metodo_pago not in metodos_validos:
+            return False, "Método de pago inválido", None
+
         # Validar monto
         if monto <= 0:
             return False, "El monto debe ser mayor a 0", None
-        
-        # Validar que no se exceda el total de la reserva
+
+        # No superar el total de la reserva
         total_pagado = PagoDAO.calcular_total_pagado_reserva(id_reserva)
         if total_pagado + monto > reserva.monto_total:
-            return False, f"El pago excede el total de la reserva. Restante: ${reserva.monto_total - total_pagado:.2f}", None
-        
-        # Validar método de pago
-        metodos_validos = ['efectivo', 'transferencia', 'tarjeta_debito', 'tarjeta_credito']
-        if metodo_pago not in metodos_validos:
-            return False, "Método de pago inválido", None
-        
-        # Crear pago
+            return False, "El pago excede el monto total de la reserva", None
+
+        # ⚠️ IMPORTANTE:
+        # La BD solo acepta: efectivo / transferencia / tarjeta_debito / tarjeta_credito
+        # Si el usuario elige "pago_online", lo guardamos como "transferencia" en BD.
+        metodo_para_bd = metodo_pago
+        if metodo_pago == "pago_online":
+            metodo_para_bd = "transferencia"
+
+        # Crear objeto Pago
         pago = Pago(
             id_reserva=id_reserva,
             fecha_pago=datetime.now(),
             monto=monto,
-            metodo_pago=metodo_pago,
-            estado_pago='pagado',
-            comprobante=comprobante.strip()
+            metodo_pago=metodo_para_bd,
+            estado_pago="pagado",
+            comprobante=comprobante.strip(),
         )
-        
+
         # Guardar en BD
         id_pago = PagoDAO.insertar(pago)
         if id_pago:
-            # Verificar si la reserva está completamente pagada
+            # Si ya quedó todo pago, confirmar reserva si estaba pendiente
             nuevo_total = total_pagado + monto
-            if nuevo_total >= reserva.monto_total:
-                # Confirmar la reserva automáticamente si está pagada
-                if reserva.estado_reserva == 'pendiente':
-                    ReservaDAO.cambiar_estado(id_reserva, 'confirmada')
-            
+            if nuevo_total >= reserva.monto_total and reserva.estado_reserva == "pendiente":
+                ReservaDAO.cambiar_estado(id_reserva, "confirmada")
+
             return True, "Pago registrado exitosamente", pago
-        else:
-            return False, "Error al registrar el pago", None
+
+        # Si el INSERT falló
+        return False, "Error al registrar el pago", None
     
     @staticmethod
     def verificar_pago_completo(id_reserva: int) -> Tuple[bool, float, float]:

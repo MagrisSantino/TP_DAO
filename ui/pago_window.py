@@ -278,9 +278,16 @@ class RegistrarPagoDialog:
         # Método de pago
         tk.Label(main_frame, text="Método de Pago: *", bg='#f0f0f0', font=('Arial', 10)).pack(anchor='w')
         self.cmb_metodo = ttk.Combobox(main_frame, font=('Arial', 10), state='readonly')
-        self.cmb_metodo['values'] = ('efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia', 'mercadopago')
+        self.cmb_metodo['values'] = (
+            'efectivo',
+            'tarjeta_debito',
+            'tarjeta_credito',
+            'transferencia',
+            'pago_online'
+        )
         self.cmb_metodo.current(0)
         self.cmb_metodo.pack(fill=tk.X, pady=(0, 15))
+
         
         # Comprobante
         tk.Label(main_frame, text="N° Comprobante (opcional):", bg='#f0f0f0', font=('Arial', 10)).pack(anchor='w')
@@ -317,17 +324,26 @@ class RegistrarPagoDialog:
             pady=10
         ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
     
+
     def registrar(self):
         """Registra el pago"""
         try:
             monto = float(self.entry_monto.get())
             metodo = self.cmb_metodo.get()
             comprobante = self.entry_comprobante.get().strip()
-            
+
+            # Si el método es pago online, aclaramos que se procesa en app externa
+            if metodo == 'pago_online':
+                messagebox.showinfo(
+                    "Pago en línea",
+                    "Este pago se registra como 'Pago Online' procesado desde una "
+                    "aplicación o portal externo."
+                )
+
             if monto <= 0:
                 messagebox.showerror("Error", "El monto debe ser mayor a 0")
                 return
-            
+
             # Registrar pago
             exito, mensaje, pago = PagoService.registrar_pago(
                 id_reserva=self.id_reserva,
@@ -335,13 +351,13 @@ class RegistrarPagoDialog:
                 metodo_pago=metodo,
                 comprobante=comprobante
             )
-            
+
             if exito:
                 messagebox.showinfo("Éxito", mensaje)
                 self.callback()
                 self.dialog.destroy()
             else:
                 messagebox.showerror("Error", mensaje)
-                
+
         except ValueError:
             messagebox.showerror("Error", "Monto inválido")

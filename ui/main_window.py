@@ -25,6 +25,9 @@ class MainWindow:
         # Crear widgets
         self.crear_menu()
         self.crear_dashboard()
+
+        # Comenzar actualización automática del dashboard
+        self._actualizar_dashboard_periodicamente()
         
     def centrar_ventana(self):
         """Centra la ventana en la pantalla"""
@@ -170,6 +173,38 @@ class MainWindow:
             fg='white'
         )
         lbl_valor.pack(pady=(5, 20))
+
+         # Guardar referencia al label para poder actualizarlo luego
+        if not hasattr(self, "stat_labels"):
+            self.stat_labels = {}
+        self.stat_labels[titulo] = lbl_valor
+
+    def actualizar_dashboard(self):
+        """Recalcula y actualiza los números de las tarjetas del dashboard."""
+        total_clientes = ClienteDAO.contar_total()
+        total_canchas = CanchaDAO.contar_total()
+        total_reservas = ReservaDAO.contar_total()
+        reservas_hoy = len(ReservaDAO.obtener_por_fecha(date.today()))
+
+        valores = {
+            "👥 Clientes": total_clientes,
+            "🏟️ Canchas": total_canchas,
+            "📅 Reservas": total_reservas,
+            "📆 Hoy": reservas_hoy,
+        }
+
+        if hasattr(self, "stat_labels"):
+            for titulo, valor in valores.items():
+                lbl = self.stat_labels.get(titulo)
+                if lbl is not None:
+                    lbl.config(text=str(valor))
+
+    def _actualizar_dashboard_periodicamente(self):
+        """Actualiza el dashboard cada 5 segundos."""
+        self.actualizar_dashboard()
+        # volver a ejecutar dentro de 5000 ms (5 segundos)
+        self.root.after(5000, self._actualizar_dashboard_periodicamente)
+
     
     def abrir_clientes(self):
         """Abre la ventana de gestión de clientes"""

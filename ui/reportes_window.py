@@ -413,7 +413,7 @@ class ReportesWindow:
                 nombre_cliente,
                 formatear_fecha(reserva.fecha_reserva),
                 formatear_monto(item['monto_total']),
-                formatear_monto(item['monto_pagado']),
+                formatear_monto(item['total_pagado']),
                 formatear_monto(item['saldo_pendiente'])
             ), tags=('pendiente',))
 

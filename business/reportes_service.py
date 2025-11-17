@@ -33,6 +33,7 @@ class ReportesService:
         reservas_confirmadas = len([r for r in reservas if r.estado_reserva == 'confirmada'])
         reservas_completadas = len([r for r in reservas if r.estado_reserva == 'completada'])
         reservas_canceladas = len([r for r in reservas if r.estado_reserva == 'cancelada'])
+        reservas_pendientes = len([r for r in reservas if r.estado_reserva == 'pendiente'])
         
         monto_total = sum(r.monto_total for r in reservas if r.estado_reserva != 'cancelada')
         
@@ -44,6 +45,7 @@ class ReportesService:
                 'confirmadas': reservas_confirmadas,
                 'completadas': reservas_completadas,
                 'canceladas': reservas_canceladas,
+                'pendientes': reservas_pendientes,
                 'monto_total': monto_total
             }
         }
@@ -223,6 +225,59 @@ class ReportesService:
             'conteo': conteo,
             'porcentajes': porcentajes,
             'total': total
+        }
+    
+    @staticmethod
+    def reporte_ingresos_periodo(fecha_desde: date, fecha_hasta: date) -> Dict:
+        """
+        Genera un reporte de ingresos en un período dado.
+
+        Args:
+            fecha_desde (date): Fecha inicial (incluida)
+            fecha_hasta (date): Fecha final (incluida)
+
+        Returns:
+            Dict con:
+                - total_reservas
+                - ingresos_totales (suma de montos de reservas no canceladas)
+                - pagos_recibidos (suma de pagos registrados)
+                - saldo_pendiente (ingresos_totales - pagos_recibidos)
+                - promedio_por_reserva
+        """
+        # Obtener reservas del período
+        reservas = ReservaDAO.obtener_por_rango_fechas(fecha_desde, fecha_hasta)
+
+        # Consideramos solo reservas que no estén canceladas
+        reservas_vigentes = [
+            r for r in reservas
+            if r.estado_reserva != 'cancelada'
+        ]
+
+        total_reservas = len(reservas_vigentes)
+
+        # Ingresos teóricos: lo que se debería cobrar
+        ingresos_totales = sum(r.monto_total for r in reservas_vigentes)
+
+        # Pagos efectivamente recibidos
+        pagos_recibidos = 0.0
+        for r in reservas_vigentes:
+            pagos_recibidos += PagoDAO.calcular_total_pagado_reserva(r.id_reserva)
+
+        # Saldo pendiente
+        saldo_pendiente = ingresos_totales - pagos_recibidos
+
+        # Promedio por reserva
+        if total_reservas > 0:
+            promedio_por_reserva = ingresos_totales / total_reservas
+        else:
+            promedio_por_reserva = 0.0
+
+        return {
+            'total_reservas': total_reservas,
+            'ingresos_totales': ingresos_totales,
+            'pagos_recibidos': pagos_recibidos,
+            'saldo_pendiente': saldo_pendiente,
+            'promedio_por_reserva': promedio_por_reserva
         }
     
     @staticmethod

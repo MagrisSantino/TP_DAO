@@ -24,6 +24,7 @@ class DatabaseConnection:
     
     def __init__(self):
         """Inicializa la conexión si no existe"""
+        self.db_path = DB_PATH
         if self._connection is None:
             self._connect()
     

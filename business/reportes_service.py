@@ -155,7 +155,13 @@ class ReportesService:
         # Agrupar por día
         reservas_por_dia = defaultdict(int)
         for r in reservas:
-            dia = r.fecha_reserva.day
+            # Convertir fecha si es string
+            if isinstance(r.fecha_reserva, str):
+                from datetime import datetime as dt
+                fecha_obj = dt.strptime(r.fecha_reserva, "%Y-%m-%d").date()
+                dia = fecha_obj.day
+            else:
+                dia = r.fecha_reserva.day
             reservas_por_dia[dia] += 1
         
         # Crear datos para gráfico

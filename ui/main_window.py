@@ -1,5 +1,6 @@
 """
 Ventana Principal del Sistema
+VERSIÓN CON ACCESOS RÁPIDOS MEJORADOS
 """
 
 import tkinter as tk
@@ -16,7 +17,7 @@ class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Sistema de Reservas - Canchas Deportivas")
-        self.root.geometry("900x600")
+        self.root.geometry("900x700")
         self.root.configure(bg='#f0f0f0')
         
         # Centrar ventana
@@ -60,6 +61,7 @@ class MainWindow:
         # Menú Reportes
         menu_reportes = tk.Menu(menubar, tearoff=0)
         menu_reportes.add_command(label="📊 Reportes", command=self.abrir_reportes)
+        menu_reportes.add_command(label="📈 Gráficos Estadísticos", command=self.abrir_graficos)
         menubar.add_cascade(label="Reportes", menu=menu_reportes)
         
         # Menú Ayuda
@@ -113,12 +115,15 @@ class MainWindow:
         )
         accesos_frame.pack(fill=tk.BOTH, expand=True, pady=(30, 0))
         
-        # Botones de acceso rápido
+        # Botones de acceso rápido - AMPLIADOS
         botones = [
             ("📅 Nueva Reserva", self.abrir_reservas, "#3498db"),
             ("👥 Nuevo Cliente", self.abrir_clientes, "#2ecc71"),
             ("🏟️ Gestionar Canchas", self.abrir_canchas, "#e74c3c"),
-            ("📊 Ver Reportes", self.abrir_reportes, "#f39c12")
+            ("💰 Gestionar Pagos", self.abrir_pagos, "#9b59b6"),
+            ("🏆 Gestionar Torneos", self.abrir_torneos, "#e67e22"),
+            ("📊 Ver Reportes", self.abrir_reportes, "#f39c12"),
+            ("📈 Gráficos Estadísticos", self.abrir_graficos, "#1abc9c"),
         ]
         
         for i, (texto, comando, color) in enumerate(botones):
@@ -133,9 +138,11 @@ class MainWindow:
                 cursor='hand2',
                 padx=20,
                 pady=15,
-                width=20
+                width=22
             )
-            btn.grid(row=i // 2, column=i % 2, padx=10, pady=10, sticky='ew')
+            row = i // 2
+            col = i % 2
+            btn.grid(row=row, column=col, padx=10, pady=10, sticky='ew')
             
             # Efecto hover
             btn.bind('<Enter>', lambda e, b=btn: b.configure(relief=tk.RAISED))
@@ -147,10 +154,15 @@ class MainWindow:
     
     def crear_stat_card(self, parent, titulo, valor, color, row, col):
         """Crea una tarjeta de estadística"""
-        card = tk.Frame(parent, bg=color, relief=tk.RAISED, borderwidth=2)
-        card.grid(row=row, column=col, padx=10, pady=10, sticky='nsew')
+        card = tk.Frame(
+            parent,
+            bg=color,
+            relief=tk.RAISED,
+            borderwidth=2
+        )
+        card.grid(row=row, column=col, padx=15, pady=15, sticky='nsew')
         
-        # Configurar grid
+        # Configurar grid del parent
         parent.grid_rowconfigure(row, weight=1)
         parent.grid_columnconfigure(col, weight=1)
         
@@ -162,20 +174,20 @@ class MainWindow:
             bg=color,
             fg='white'
         )
-        lbl_titulo.pack(pady=(20, 5))
+        lbl_titulo.pack(pady=(20, 10))
         
         # Valor
         lbl_valor = tk.Label(
             card,
             text=str(valor),
-            font=('Arial', 36, 'bold'),
+            font=('Arial', 32, 'bold'),
             bg=color,
             fg='white'
         )
-        lbl_valor.pack(pady=(5, 20))
-
-         # Guardar referencia al label para poder actualizarlo luego
-        if not hasattr(self, "stat_labels"):
+        lbl_valor.pack(pady=(0, 20))
+        
+        # Guardar referencia para actualizaciones
+        if not hasattr(self, 'stat_labels'):
             self.stat_labels = {}
         self.stat_labels[titulo] = lbl_valor
 
@@ -239,6 +251,11 @@ class MainWindow:
         """Abre la ventana de reportes"""
         from ui.reportes_window import ReportesWindow
         ReportesWindow(self.root)
+    
+    def abrir_graficos(self):
+        """Abre la ventana de gráficos estadísticos"""
+        from ui.graficos_window import GraficosWindow
+        GraficosWindow(self.root)
     
     def mostrar_acerca_de(self):
         """Muestra información sobre el sistema"""

@@ -381,8 +381,7 @@ class ReportesWindow:
             total_horas = item.get('total_horas', 0)
             
             # Intentar obtener ingresos con múltiples nombres de clave
-            ingresos = item.get('ingresos_generados', item.get('ingresos', 0))
-            
+            ingresos = item.get('monto_total', 0)
             self.tree_ranking.insert('', tk.END, values=(
                 f"#{i}",
                 cancha.nombre,

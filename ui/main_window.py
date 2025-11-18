@@ -1,6 +1,6 @@
 """
 Ventana Principal del Sistema
-VERSIÓN CON ACCESOS RÁPIDOS MEJORADOS
+VERSIÓN OPTIMIZADA PARA NOTEBOOKS (COMPACTA)
 """
 
 import tkinter as tk
@@ -17,11 +17,21 @@ class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Sistema de Reservas - Canchas Deportivas")
-        self.root.geometry("900x700")
-        self.root.configure(bg='#f0f0f0')
         
-        # Centrar ventana
-        self.centrar_ventana()
+        # CONFIGURACIÓN PARA PANTALLA COMPLETA/MAXIMIZADA
+        # Intentamos maximizar según el sistema operativo
+        try:
+            self.root.state('zoomed')  # Windows
+        except:
+            try:
+                self.root.attributes('-zoomed', True)  # Linux
+            except:
+                # Si falla, usamos un tamaño seguro
+                screen_width = self.root.winfo_screenwidth()
+                screen_height = self.root.winfo_screenheight()
+                self.root.geometry(f"{screen_width-50}x{screen_height-100}+0+0")
+        
+        self.root.configure(bg='#f0f0f0')
         
         # Crear widgets
         self.crear_menu()
@@ -29,15 +39,6 @@ class MainWindow:
 
         # Comenzar actualización automática del dashboard
         self._actualizar_dashboard_periodicamente()
-        
-    def centrar_ventana(self):
-        """Centra la ventana en la pantalla"""
-        self.root.update_idletasks()
-        ancho = self.root.winfo_width()
-        alto = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (ancho // 2)
-        y = (self.root.winfo_screenheight() // 2) - (alto // 2)
-        self.root.geometry(f'{ancho}x{alto}+{x}+{y}')
     
     def crear_menu(self):
         """Crea la barra de menú"""
@@ -72,24 +73,24 @@ class MainWindow:
         self.root.config(menu=menubar)
     
     def crear_dashboard(self):
-        """Crea el dashboard con estadísticas"""
+        """Crea el dashboard con estadísticas (Versión Compacta)"""
         # Frame principal
         main_frame = tk.Frame(self.root, bg='#f0f0f0')
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
         
-        # Título
+        # Título (Fuente reducida)
         titulo = tk.Label(
             main_frame,
-            text="🏟️ Sistema de Reservas de Canchas Deportivas",
-            font=('Arial', 20, 'bold'),
+            text="🏟️ Sistema de Reservas",
+            font=('Arial', 18, 'bold'), # Reducido de 20
             bg='#f0f0f0',
             fg='#2c3e50'
         )
-        titulo.pack(pady=(0, 30))
+        titulo.pack(pady=(0, 15)) # Padding reducido
         
-        # Frame de estadísticas
+        # Frame de estadísticas (expand=False para ahorrar espacio vertical)
         stats_frame = tk.Frame(main_frame, bg='#f0f0f0')
-        stats_frame.pack(fill=tk.BOTH, expand=True)
+        stats_frame.pack(fill=tk.X, expand=False)
         
         # Obtener estadísticas
         total_clientes = ClienteDAO.contar_total()
@@ -107,15 +108,15 @@ class MainWindow:
         accesos_frame = tk.LabelFrame(
             main_frame,
             text="Accesos Rápidos",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 11, 'bold'),
             bg='#f0f0f0',
             fg='#2c3e50',
-            padx=20,
-            pady=20
+            padx=10,
+            pady=5
         )
-        accesos_frame.pack(fill=tk.BOTH, expand=True, pady=(30, 0))
+        accesos_frame.pack(fill=tk.BOTH, expand=True, pady=(15, 0))
         
-        # Botones de acceso rápido - AMPLIADOS
+        # Botones de acceso rápido - LISTA COMPLETA
         botones = [
             ("📅 Nueva Reserva", self.abrir_reservas, "#3498db"),
             ("👥 Nuevo Cliente", self.abrir_clientes, "#2ecc71"),
@@ -131,18 +132,19 @@ class MainWindow:
                 accesos_frame,
                 text=texto,
                 command=comando,
-                font=('Arial', 11, 'bold'),
+                font=('Arial', 10, 'bold'), # Fuente reducida
                 bg=color,
                 fg='white',
                 relief=tk.FLAT,
                 cursor='hand2',
-                padx=20,
-                pady=15,
+                padx=10,
+                pady=8, # Padding reducido drásticamente
                 width=22
             )
+            # Grid optimizado
             row = i // 2
             col = i % 2
-            btn.grid(row=row, column=col, padx=10, pady=10, sticky='ew')
+            btn.grid(row=row, column=col, padx=10, pady=5, sticky='ew')
             
             # Efecto hover
             btn.bind('<Enter>', lambda e, b=btn: b.configure(relief=tk.RAISED))
@@ -153,38 +155,39 @@ class MainWindow:
         accesos_frame.grid_columnconfigure(1, weight=1)
     
     def crear_stat_card(self, parent, titulo, valor, color, row, col):
-        """Crea una tarjeta de estadística"""
+        """Crea una tarjeta de estadística (Versión Compacta)"""
         card = tk.Frame(
             parent,
             bg=color,
             relief=tk.RAISED,
             borderwidth=2
         )
-        card.grid(row=row, column=col, padx=15, pady=15, sticky='nsew')
+        # Menos margen externo
+        card.grid(row=row, column=col, padx=10, pady=5, sticky='nsew')
         
         # Configurar grid del parent
         parent.grid_rowconfigure(row, weight=1)
         parent.grid_columnconfigure(col, weight=1)
         
-        # Título
+        # Título (Fuente reducida)
         lbl_titulo = tk.Label(
             card,
             text=titulo,
-            font=('Arial', 14, 'bold'),
+            font=('Arial', 12, 'bold'), # Reducido de 14
             bg=color,
             fg='white'
         )
-        lbl_titulo.pack(pady=(20, 10))
+        lbl_titulo.pack(pady=(10, 2)) # Menos padding vertical
         
-        # Valor
+        # Valor (Fuente reducida)
         lbl_valor = tk.Label(
             card,
             text=str(valor),
-            font=('Arial', 32, 'bold'),
+            font=('Arial', 24, 'bold'), # Reducido de 32
             bg=color,
             fg='white'
         )
-        lbl_valor.pack(pady=(0, 20))
+        lbl_valor.pack(pady=(2, 10)) # Menos padding vertical
         
         # Guardar referencia para actualizaciones
         if not hasattr(self, 'stat_labels'):
@@ -214,9 +217,7 @@ class MainWindow:
     def _actualizar_dashboard_periodicamente(self):
         """Actualiza el dashboard cada 5 segundos."""
         self.actualizar_dashboard()
-        # volver a ejecutar dentro de 5000 ms (5 segundos)
         self.root.after(5000, self._actualizar_dashboard_periodicamente)
-
     
     def abrir_clientes(self):
         """Abre la ventana de gestión de clientes"""

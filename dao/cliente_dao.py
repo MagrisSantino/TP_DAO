@@ -279,7 +279,7 @@ class ClienteDAO:
     @staticmethod
     def buscar(termino: str) -> List[Cliente]:
         """
-        Busca clientes por nombre, apellido, DNI o email.
+        Busca clientes por nombre, apellido, nombre completo, DNI o email.
         
         Args:
             termino (str): Término de búsqueda
@@ -292,13 +292,26 @@ class ClienteDAO:
             cursor = conn.cursor()
             
             termino_like = f"%{termino}%"
+            
+            # MODIFICACIÓN: Agregamos (nombre || ' ' || apellido) para buscar por nombre completo
             query = """
                 SELECT * FROM cliente 
-                WHERE nombre LIKE ? OR apellido LIKE ? OR dni LIKE ? OR email LIKE ?
+                WHERE nombre LIKE ? 
+                   OR apellido LIKE ? 
+                   OR (nombre || ' ' || apellido) LIKE ?
+                   OR dni LIKE ? 
+                   OR email LIKE ?
                 ORDER BY apellido, nombre
             """
             
-            cursor.execute(query, (termino_like, termino_like, termino_like, termino_like))
+            # Debemos pasar el término 5 veces ahora (una por cada ?)
+            cursor.execute(query, (
+                termino_like, 
+                termino_like, 
+                termino_like, 
+                termino_like, 
+                termino_like
+            ))
             
             rows = cursor.fetchall()
             return [ClienteDAO._row_to_cliente(row) for row in rows]

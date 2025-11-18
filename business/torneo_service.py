@@ -21,9 +21,6 @@ class TorneoService:
                     descripcion: str = "") -> Tuple[bool, str, Optional[Torneo]]:
         """
         Crea un nuevo torneo con validaciones.
-        
-        Returns:
-            Tuple (éxito, mensaje, torneo)
         """
         # Validar nombre
         if not nombre or len(nombre.strip()) < 3:
@@ -37,6 +34,7 @@ class TorneoService:
         if fecha_inicio < date.today():
             return False, "La fecha de inicio no puede ser pasada", None
         
+        # --- CORRECCIÓN AQUÍ ---
         if fecha_fin < fecha_inicio:
             return False, "La fecha de fin debe ser posterior a la fecha de inicio", None
         

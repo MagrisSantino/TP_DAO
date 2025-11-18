@@ -66,23 +66,23 @@ class Reserva:
         if not self.hora_inicio or not self.hora_fin:
             return 0.0
         
-        # Convertir a time si viene como string desde la BD
-        hora_inicio = self.hora_inicio
-        hora_fin = self.hora_fin
+        # Helper interno para normalizar a objeto time
+        def normalizar_hora(h):
+            if isinstance(h, time):
+                return h
+            if isinstance(h, str):
+                try:
+                    # Intenta formato corto HH:MM
+                    return datetime.strptime(h[:5], '%H:%M').time()
+                except ValueError:
+                    return None
+            return None
+
+        # Convertir inputs
+        hora_inicio = normalizar_hora(self.hora_inicio)
+        hora_fin = normalizar_hora(self.hora_fin)
         
-        if isinstance(self.hora_inicio, str):
-            from utils.helpers import parsear_hora
-            hora_inicio = parsear_hora(self.hora_inicio)
-            if not hora_inicio:  # Si falla el parseo
-                return 0.0
-        
-        if isinstance(self.hora_fin, str):
-            from utils.helpers import parsear_hora
-            hora_fin = parsear_hora(self.hora_fin)
-            if not hora_fin:  # Si falla el parseo
-                return 0.0
-        
-        # Si después de todo aún son None, retornar 0
+        # Si alguno no es válido, retornar 0
         if not hora_inicio or not hora_fin:
             return 0.0
         
@@ -91,11 +91,15 @@ class Reserva:
             inicio = datetime.combine(date.today(), hora_inicio)
             fin = datetime.combine(date.today(), hora_fin)
             
+            # Si la hora fin es menor a inicio, asumimos que termina al día siguiente
+            if fin < inicio:
+                fin += timedelta(days=1)
+            
             duracion = fin - inicio
             return duracion.total_seconds() / 3600  # Convertir segundos a horas
         except (TypeError, ValueError):
             return 0.0
-    
+            
     def get_rango_horario(self):
         """Retorna el rango horario como string"""
         if self.hora_inicio and self.hora_fin:

@@ -314,6 +314,12 @@ class NuevoTorneoDialog:
                 messagebox.showwarning("Advertencia", "Complete los campos obligatorios")
                 return
             
+            if fecha_fin < fecha_inicio:
+                messagebox.showerror("Error de Fechas", "La fecha de fin no puede ser anterior a la de inicio.")
+                # Opcional: Resetear la fecha fin a la de inicio
+                self.date_fin.set_date(fecha_inicio)
+                return
+            
             exito, mensaje, torneo = TorneoService.crear_torneo(
                 nombre=nombre,
                 deporte=deporte,

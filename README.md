@@ -6,14 +6,14 @@ Sistema de gestión integral para complejos deportivos que permite administrar c
 
 ## 👥 Integrantes del Grupo
 
-- Valentino [Apellido]
-- [Nombre 2]
-- [Nombre 3]
-- [Opcional: Nombre 4]
-- [Opcional: Nombre 5]
+- Valentino Sangenis - 90153
+- Ignacio Patriarca - 91025
+- Martín Aguirregomezcorta - 89736
+- Eliseo Davila - 86694
+- Santino Magris - 91999
 
-**Materia**: [Nombre de la materia]  
-**Profesor**: [Nombre del profesor]  
+**Materia**: Desarrollo de Aplicaciones con Objetos
+**Curso**: 4k3
 **Año**: 2025
 
 ---

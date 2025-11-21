@@ -1,34 +1,39 @@
 """
 Ventana de Gestión de Pagos
+CORREGIDO: Agregado método 'pago_online'.
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkcalendar import DateEntry
+from datetime import date
 from business.pago_service import PagoService
 from business.reserva_service import ReservaService
+from business.cliente_service import ClienteService
 from dao.reserva_dao import ReservaDAO
-from dao.cliente_dao import ClienteDAO
-from utils.helpers import formatear_fecha, formatear_monto
+from dao.torneo_dao import TorneoDAO 
+from utils.helpers import formatear_monto, formatear_fecha
 
 
 class PagoWindow:
-    """Ventana de gestión de pagos"""
+    """Ventana de gestión de pagos (Historial)"""
     
     def __init__(self, parent):
         self.window = tk.Toplevel(parent)
         self.window.title("Gestión de Pagos")
-        self.window.geometry("1000x700")
+        self.window.geometry("1000x600")
         self.window.configure(bg='#f0f0f0')
         
-        self.pagos = []
-        self.reserva_seleccionada = None
+        self.pago_seleccionado = None
         
         self.crear_widgets()
-        self.cargar_reservas_pendientes()
+        
+        # Inicializar filtros y cargar
+        self.limpiar_filtros()
+        
         self.centrar_ventana()
-    
+        
     def centrar_ventana(self):
-        """Centra la ventana"""
         self.window.update_idletasks()
         ancho = self.window.winfo_width()
         alto = self.window.winfo_height()
@@ -37,327 +42,231 @@ class PagoWindow:
         self.window.geometry(f'{ancho}x{alto}+{x}+{y}')
     
     def crear_widgets(self):
-        """Crea todos los widgets"""
-        # Frame superior
+        # --- HEADER ---
         frame_top = tk.Frame(self.window, bg='#f0f0f0')
         frame_top.pack(fill=tk.X, padx=20, pady=10)
         
-        tk.Label(
-            frame_top,
-            text="💰 Gestión de Pagos",
-            font=('Arial', 16, 'bold'),
-            bg='#f0f0f0',
-            fg='#2c3e50'
-        ).pack(side=tk.LEFT)
+        tk.Label(frame_top, text="💰 Historial de Pagos", font=('Arial', 16, 'bold'), bg='#f0f0f0', fg='#2c3e50').pack(side=tk.LEFT)
         
-        # Botones
-        tk.Button(
-            frame_top,
-            text="💳 Registrar Pago",
-            command=self.registrar_pago,
-            bg='#2ecc71',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=15,
-            pady=8
-        ).pack(side=tk.RIGHT, padx=5)
+        # --- FILTROS ---
+        frame_filtros = tk.LabelFrame(self.window, text="Filtros de Búsqueda", bg='#f0f0f0', padx=10, pady=10)
+        frame_filtros.pack(fill=tk.X, padx=20, pady=(0, 10))
         
-        tk.Button(
-            frame_top,
-            text="🔄 Actualizar",
-            command=self.cargar_reservas_pendientes,
-            bg='#3498db',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=15,
-            pady=8
-        ).pack(side=tk.RIGHT, padx=5)
+        self.var_usar_fecha = tk.BooleanVar(value=False)
+        chk_fecha = tk.Checkbutton(frame_filtros, text="Filtrar por fecha", variable=self.var_usar_fecha, bg='#f0f0f0', command=self.toggle_fechas)
+        chk_fecha.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Tabla de reservas con saldo pendiente
+        tk.Label(frame_filtros, text="Desde:", bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 5))
+        self.date_desde = DateEntry(frame_filtros, width=12, background='darkblue', foreground='white', borderwidth=2)
+        self.date_desde.set_date(date.today())
+        self.date_desde.pack(side=tk.LEFT, padx=(0, 10))
+        
+        tk.Label(frame_filtros, text="Hasta:", bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 5))
+        self.date_hasta = DateEntry(frame_filtros, width=12, background='darkblue', foreground='white', borderwidth=2)
+        self.date_hasta.set_date(date.today())
+        self.date_hasta.pack(side=tk.LEFT, padx=(0, 20))
+        
+        tk.Button(frame_filtros, text="🔍 Aplicar Filtros", command=self.cargar_pagos, bg='#95a5a6', fg='white', relief=tk.FLAT, padx=10).pack(side=tk.LEFT, padx=5)
+        tk.Button(frame_filtros, text="🔄 Limpiar", command=self.limpiar_filtros, bg='#bdc3c7', relief=tk.FLAT, padx=10).pack(side=tk.LEFT, padx=5)
+
+        # --- TABLA ---
         frame_tabla = tk.Frame(self.window, bg='#f0f0f0')
         frame_tabla.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-        
-        tk.Label(
-            frame_tabla,
-            text="Reservas con Saldo Pendiente",
-            font=('Arial', 12, 'bold'),
-            bg='#f0f0f0',
-            fg='#2c3e50'
-        ).pack(anchor='w', pady=(0, 10))
         
         scrollbar = ttk.Scrollbar(frame_tabla)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        self.tree = ttk.Treeview(
-            frame_tabla,
-            columns=('ID', 'Cliente', 'Fecha', 'Cancha', 'Total', 'Pagado', 'Pendiente', 'Estado'),
-            show='headings',
-            yscrollcommand=scrollbar.set
-        )
+        self.tree = ttk.Treeview(frame_tabla, columns=('ID', 'Reserva', 'Cliente', 'Monto', 'Fecha', 'Método'), show='headings', yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.tree.yview)
-        
-        # Configurar columnas
-        self.tree.heading('ID', text='ID')
-        self.tree.heading('Cliente', text='Cliente')
-        self.tree.heading('Fecha', text='Fecha')
-        self.tree.heading('Cancha', text='Cancha')
-        self.tree.heading('Total', text='Total')
-        self.tree.heading('Pagado', text='Pagado')
-        self.tree.heading('Pendiente', text='Pendiente')
-        self.tree.heading('Estado', text='Estado Pago')
-        
-        self.tree.column('ID', width=50, anchor='center')
-        self.tree.column('Cliente', width=150)
-        self.tree.column('Fecha', width=100, anchor='center')
-        self.tree.column('Cancha', width=150)
-        self.tree.column('Total', width=100, anchor='e')
-        self.tree.column('Pagado', width=100, anchor='e')
-        self.tree.column('Pendiente', width=100, anchor='e')
-        self.tree.column('Estado', width=120, anchor='center')
-        
         self.tree.pack(fill=tk.BOTH, expand=True)
         
-        # Evento de selección
-        self.tree.bind('<<TreeviewSelect>>', self.on_select)
+        self.tree.heading('ID', text='ID Pago')
+        self.tree.heading('Reserva', text='Ref. (R/T)')
+        self.tree.heading('Cliente', text='Cliente / Org')
+        self.tree.heading('Monto', text='Monto Pagado')
+        self.tree.heading('Fecha', text='Fecha Pago')
+        self.tree.heading('Método', text='Método')
         
-        # Tags
-        self.tree.tag_configure('pendiente', background='#fff3cd')
-        self.tree.tag_configure('pagado', background='#d4edda')
-    
-    def cargar_reservas_pendientes(self):
-        """Carga reservas con saldo pendiente"""
-        # Limpiar tabla
+        self.tree.column('ID', width=50, anchor='center')
+        self.tree.column('Reserva', width=80, anchor='center')
+        self.tree.column('Monto', width=100, anchor='e')
+        self.tree.column('Fecha', width=100, anchor='center')
+        
+        self.toggle_fechas()
+
+    def toggle_fechas(self):
+        state = 'normal' if self.var_usar_fecha.get() else 'disabled'
+        self.date_desde.configure(state=state)
+        self.date_hasta.configure(state=state)
+
+    def limpiar_filtros(self):
+        self.var_usar_fecha.set(False)
+        self.date_desde.set_date(date.today())
+        self.date_hasta.set_date(date.today())
+        self.toggle_fechas()
+        self.cargar_pagos()
+
+    def cargar_pagos(self):
+        try:
+            self.window.lift()
+            self.window.focus_force()
+        except:
+            pass
+
         for item in self.tree.get_children():
             self.tree.delete(item)
+            
+        todos_pagos = PagoService.obtener_todos()
         
-        # Obtener todas las reservas confirmadas o completadas
-        from dao.reserva_dao import ReservaDAO
-        reservas = ReservaDAO.obtener_por_estado('confirmada') + ReservaDAO.obtener_por_estado('completada')
-        
-        for reserva in reservas:
-            # Verificar estado del pago
-            esta_pagada, total, pagado = PagoService.verificar_pago_completo(reserva.id_reserva)
-            pendiente = total - pagado
+        usar_fechas = self.var_usar_fecha.get()
+        try:
+            f_desde = self.date_desde.get_date()
+            f_hasta = self.date_hasta.get_date()
+        except:
+            f_desde = date.today()
+            f_hasta = date.today()
             
-            # Obtener datos relacionados
-            cliente = ClienteDAO.obtener_por_id(reserva.id_cliente)
-            from dao.cancha_dao import CanchaDAO
-            cancha = CanchaDAO.obtener_por_id(reserva.id_cancha)
+        for p in todos_pagos:
+            if usar_fechas:
+                if not (f_desde <= p.fecha_pago <= f_hasta):
+                    continue
             
-            nombre_cliente = cliente.get_nombre_completo() if cliente else "N/A"
-            nombre_cancha = cancha.nombre if cancha else "N/A"
+            # Determinar si es pago de Reserva o Torneo
+            referencia = "N/A"
+            cliente_nombre = "N/A"
             
-            estado_pago = "Pagado" if esta_pagada else "Pendiente"
-            tag = 'pagado' if esta_pagada else 'pendiente'
+            if p.id_reserva:
+                referencia = f"Res #{p.id_reserva}"
+                reserva = ReservaDAO.obtener_por_id(p.id_reserva)
+                if reserva:
+                    cliente = ClienteService.obtener_cliente(reserva.id_cliente)
+                    if cliente: cliente_nombre = f"{cliente.nombre} {cliente.apellido}"
+            elif p.id_torneo:
+                referencia = f"Tor #{p.id_torneo}"
+                torneo = TorneoDAO.obtener_por_id(p.id_torneo)
+                if torneo and torneo.id_cliente:
+                    cliente = ClienteService.obtener_cliente(torneo.id_cliente)
+                    if cliente: cliente_nombre = f"{cliente.nombre} {cliente.apellido}"
             
             self.tree.insert('', tk.END, values=(
-                reserva.id_reserva,
-                nombre_cliente,
-                formatear_fecha(reserva.fecha_reserva),
-                nombre_cancha,
-                formatear_monto(total),
-                formatear_monto(pagado),
-                formatear_monto(pendiente),
-                estado_pago
-            ), tags=(tag,))
-    
-    def on_select(self, event):
-        """Maneja la selección de una fila"""
-        selection = self.tree.selection()
-        if selection:
-            item = self.tree.item(selection[0])
-            self.reserva_seleccionada = item['values'][0]
-    
-    def registrar_pago(self):
-        """Abre diálogo para registrar un pago"""
-        if not self.reserva_seleccionada:
-            messagebox.showwarning("Advertencia", "Seleccione una reserva")
-            return
-        
-        RegistrarPagoDialog(self.window, self.reserva_seleccionada, self.cargar_reservas_pendientes)
+                p.id_pago, referencia, cliente_nombre, formatear_monto(p.monto), p.fecha_pago, p.metodo_pago
+            ))
 
 
-class RegistrarPagoDialog:
-    """Diálogo para registrar un pago"""
-    
-    def __init__(self, parent, id_reserva, callback):
+class NuevoPagoDialog:
+    """
+    Diálogo para registrar pago (Reserva o Torneo).
+    """
+    def __init__(self, parent, id_reserva=None, callback=None, id_torneo=None):
+        self.parent = parent
         self.id_reserva = id_reserva
+        self.id_torneo = id_torneo
         self.callback = callback
+        
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Registrar Pago")
-        self.dialog.geometry("450x400")
+        titulo = f"Pago Reserva #{id_reserva}" if id_reserva else f"Pago Torneo #{id_torneo}"
+        self.dialog.title(titulo)
+        self.dialog.geometry("500x500")
         self.dialog.configure(bg='#f0f0f0')
         self.dialog.grab_set()
         
-        # Obtener info de la reserva
-        self.reserva = ReservaDAO.obtener_por_id(id_reserva)
-        if not self.reserva:
-            messagebox.showerror("Error", "Reserva no encontrada")
-            self.dialog.destroy()
-            return
+        self.dialog.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
+        
+        self.reserva = ReservaDAO.obtener_por_id(self.id_reserva) if self.id_reserva else None
+        self.torneo = TorneoDAO.obtener_por_id(self.id_torneo) if self.id_torneo else None
         
         self.crear_formulario()
-        self.centrar_dialogo()
-    
-    def centrar_dialogo(self):
-        """Centra el diálogo"""
+        
+        # Centrar
         self.dialog.update_idletasks()
         ancho = self.dialog.winfo_width()
         alto = self.dialog.winfo_height()
         x = (self.dialog.winfo_screenwidth() // 2) - (ancho // 2)
         y = (self.dialog.winfo_screenheight() // 2) - (alto // 2)
         self.dialog.geometry(f'{ancho}x{alto}+{x}+{y}')
-    
-    def crear_formulario(self):
-        """Crea el formulario"""
-        main_frame = tk.Frame(self.dialog, bg='#f0f0f0')
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
-        
-        tk.Label(
-            main_frame,
-            text="Registrar Pago",
-            font=('Arial', 14, 'bold'),
-            bg='#f0f0f0',
-            fg='#2c3e50'
-        ).pack(pady=(0, 20))
-        
-        # Info de la reserva
-        info_frame = tk.LabelFrame(
-            main_frame,
-            text="Información de la Reserva",
-            font=('Arial', 10, 'bold'),
-            bg='#f0f0f0',
-            padx=15,
-            pady=15
-        )
-        info_frame.pack(fill=tk.X, pady=(0, 20))
-        
-        # Calcular saldo
-        esta_pagada, total, pagado = PagoService.verificar_pago_completo(self.id_reserva)
-        pendiente = total - pagado
-        
-        tk.Label(
-            info_frame,
-            text=f"Reserva ID: {self.id_reserva}",
-            font=('Arial', 10),
-            bg='#f0f0f0'
-        ).pack(anchor='w')
-        
-        tk.Label(
-            info_frame,
-            text=f"Monto Total: {formatear_monto(total)}",
-            font=('Arial', 10),
-            bg='#f0f0f0'
-        ).pack(anchor='w')
-        
-        tk.Label(
-            info_frame,
-            text=f"Ya Pagado: {formatear_monto(pagado)}",
-            font=('Arial', 10),
-            bg='#f0f0f0'
-        ).pack(anchor='w')
-        
-        tk.Label(
-            info_frame,
-            text=f"Saldo Pendiente: {formatear_monto(pendiente)}",
-            font=('Arial', 10, 'bold'),
-            bg='#f0f0f0',
-            fg='#e74c3c'
-        ).pack(anchor='w')
-        
-        # Monto a pagar
-        tk.Label(main_frame, text="Monto a Pagar: *", bg='#f0f0f0', font=('Arial', 10)).pack(anchor='w')
-        self.entry_monto = tk.Entry(main_frame, font=('Arial', 10))
-        self.entry_monto.insert(0, str(pendiente))
-        self.entry_monto.pack(fill=tk.X, pady=(0, 15))
-        
-        # Método de pago
-        tk.Label(main_frame, text="Método de Pago: *", bg='#f0f0f0', font=('Arial', 10)).pack(anchor='w')
-        self.cmb_metodo = ttk.Combobox(main_frame, font=('Arial', 10), state='readonly')
-        self.cmb_metodo['values'] = (
-            'efectivo',
-            'tarjeta_debito',
-            'tarjeta_credito',
-            'transferencia',
-            'pago_online'
-        )
-        self.cmb_metodo.current(0)
-        self.cmb_metodo.pack(fill=tk.X, pady=(0, 15))
 
+    def crear_formulario(self):
+        main = tk.Frame(self.dialog, bg='#f0f0f0', padx=20, pady=20)
+        main.pack(fill=tk.BOTH, expand=True)
         
-        # Comprobante
-        tk.Label(main_frame, text="N° Comprobante (opcional):", bg='#f0f0f0', font=('Arial', 10)).pack(anchor='w')
-        self.entry_comprobante = tk.Entry(main_frame, font=('Arial', 10))
-        self.entry_comprobante.pack(fill=tk.X, pady=(0, 20))
+        tk.Label(main, text="Confirmar y Pagar", font=('Arial', 14, 'bold'), bg='#f0f0f0').pack(pady=(0, 20))
         
-        # Botones
-        frame_botones = tk.Frame(main_frame, bg='#f0f0f0')
-        frame_botones.pack(fill=tk.X)
+        # Información de la deuda
+        info_frame = tk.LabelFrame(main, text="Detalle", bg='#f0f0f0', padx=10, pady=10)
+        info_frame.pack(fill=tk.X, pady=(0, 15))
         
-        tk.Button(
-            frame_botones,
-            text="💳 Registrar Pago",
-            command=self.registrar,
-            bg='#2ecc71',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=20,
-            pady=10
-        ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5))
+        pendiente = 0.0
         
-        tk.Button(
-            frame_botones,
-            text="Cancelar",
-            command=self.dialog.destroy,
-            bg='#95a5a6',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=20,
-            pady=10
-        ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
-    
+        if self.reserva:
+            cliente = ClienteService.obtener_cliente(self.reserva.id_cliente)
+            nom = f"{cliente.nombre} {cliente.apellido}" if cliente else "-"
+            tk.Label(info_frame, text=f"Cliente: {nom}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+            
+            pagado = PagoService.obtener_monto_pagado(self.reserva.id_reserva)
+            pendiente = self.reserva.monto_total - pagado
+            tk.Label(info_frame, text=f"Total Reserva: {formatear_monto(self.reserva.monto_total)}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+            
+        elif self.torneo:
+            cliente = ClienteService.obtener_cliente(self.torneo.id_cliente)
+            nom = f"{cliente.nombre} {cliente.apellido}" if cliente else "-"
+            tk.Label(info_frame, text=f"Organizador: {nom}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+            tk.Label(info_frame, text=f"Torneo: {self.torneo.nombre}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+            
+            pagado = PagoService.obtener_monto_pagado_torneo(self.torneo.id_torneo)
+            pendiente = self.torneo.precio_total - pagado
+            tk.Label(info_frame, text=f"Total Torneo: {formatear_monto(self.torneo.precio_total)}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+
+        tk.Label(info_frame, text=f"Pendiente: {formatear_monto(pendiente)}", bg='#f0f0f0', anchor='w', fg='red', font=('Arial', 10, 'bold')).pack(fill=tk.X)
+        self.monto_sugerido = pendiente
+
+        # Campos
+        tk.Label(main, text="Monto a Pagar:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+        self.entry_monto = tk.Entry(main, font=('Arial', 11))
+        self.entry_monto.pack(fill=tk.X, pady=5)
+        self.entry_monto.insert(0, str(self.monto_sugerido))
+        
+        tk.Label(main, text="Método de Pago:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+        # CORRECCIÓN AQUÍ: Agregado 'pago_online'
+        self.cmb_metodo = ttk.Combobox(main, values=['efectivo', 'tarjeta', 'transferencia', 'pago_online'], state='readonly')
+        self.cmb_metodo.pack(fill=tk.X, pady=5)
+        self.cmb_metodo.set('efectivo')
+        
+        btn_frame = tk.Frame(main, bg='#f0f0f0', pady=20)
+        btn_frame.pack(fill=tk.X)
+        
+        tk.Button(btn_frame, text="✅ Pagar", command=self.registrar, bg='#2ecc71', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#95a5a6', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
+
+    def cerrar_ventana(self):
+        self.dialog.destroy()
+        try:
+            self.parent.lift()
+            self.parent.focus_force()
+        except:
+            pass
 
     def registrar(self):
-        """Registra el pago"""
         try:
             monto = float(self.entry_monto.get())
             metodo = self.cmb_metodo.get()
-            comprobante = self.entry_comprobante.get().strip()
-
-            # Si el método es pago online, aclaramos que se procesa en app externa
-            if metodo == 'pago_online':
-                messagebox.showinfo(
-                    "Pago en línea",
-                    "Este pago se registra como 'Pago Online' procesado desde una "
-                    "aplicación o portal externo."
-                )
-
+            
             if monto <= 0:
-                messagebox.showerror("Error", "El monto debe ser mayor a 0")
+                messagebox.showwarning("Advertencia", "El monto debe ser mayor a 0")
                 return
 
-            # Registrar pago
-            exito, mensaje, pago = PagoService.registrar_pago(
-                id_reserva=self.id_reserva,
-                monto=monto,
-                metodo_pago=metodo,
-                comprobante=comprobante
-            )
-
+            exito = False
+            msg = ""
+            
+            if self.id_reserva:
+                exito, msg, _ = PagoService.registrar_pago(self.id_reserva, monto, metodo)
+            elif self.id_torneo:
+                exito, msg, _ = PagoService.registrar_pago_torneo(self.id_torneo, monto, metodo)
+                
             if exito:
-                messagebox.showinfo("Éxito", mensaje)
-                self.callback()
-                self.dialog.destroy()
+                messagebox.showinfo("Éxito", msg)
+                if self.callback: self.callback()
+                self.cerrar_ventana()
             else:
-                messagebox.showerror("Error", mensaje)
-
+                messagebox.showerror("Error", msg)
         except ValueError:
             messagebox.showerror("Error", "Monto inválido")

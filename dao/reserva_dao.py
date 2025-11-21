@@ -1,7 +1,7 @@
 """
 DAO para la entidad Reserva
 Operaciones CRUD sobre la tabla 'reserva'
-CORREGIDO: Conversión correcta de tipos de datos (Fechas y Horas)
+CORREGIDO: Incluye obtener_por_fecha, alias obtener_todos y soporte id_torneo.
 """
 import sqlite3
 from typing import List, Optional
@@ -15,7 +15,6 @@ class ReservaDAO:
     
     @staticmethod
     def insertar(reserva: Reserva) -> Optional[int]:
-        """Inserta una nueva reserva."""
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -27,8 +26,8 @@ class ReservaDAO:
             query = """
                 INSERT INTO reserva (id_cliente, id_cancha, fecha_reserva, hora_inicio, 
                                      hora_fin, usa_iluminacion, estado_reserva, monto_total, 
-                                     fecha_creacion, observaciones)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                     fecha_creacion, observaciones, id_torneo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             
             cursor.execute(query, (
@@ -41,7 +40,8 @@ class ReservaDAO:
                 reserva.estado_reserva,
                 reserva.monto_total,
                 reserva.fecha_creacion,
-                reserva.observaciones
+                reserva.observaciones,
+                reserva.id_torneo
             ))
             
             conn.commit()
@@ -78,6 +78,9 @@ class ReservaDAO:
         except sqlite3.Error as e:
             print(f"Error al obtener todas las reservas: {e}")
             return []
+
+    # ALIAS para evitar errores de compatibilidad
+    obtener_todos = obtener_todas
     
     @staticmethod
     def obtener_por_cliente(id_cliente: int) -> List[Reserva]:
@@ -105,6 +108,7 @@ class ReservaDAO:
     
     @staticmethod
     def obtener_por_fecha(fecha: date) -> List[Reserva]:
+        """Obtiene todas las reservas de una fecha específica."""
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -132,11 +136,10 @@ class ReservaDAO:
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM reserva WHERE estado_reserva = ? ORDER BY fecha_reserva DESC", (estado,))
+            cursor.execute("SELECT * FROM reserva WHERE estado_reserva = ?", (estado,))
             rows = cursor.fetchall()
             return [ReservaDAO._row_to_reserva(row) for row in rows]
-        except sqlite3.Error as e:
-            print(f"Error al obtener reservas por estado: {e}")
+        except sqlite3.Error:
             return []
 
     @staticmethod
@@ -149,25 +152,20 @@ class ReservaDAO:
             hora_inicio_str = hora_inicio.strftime('%H:%M:%S') if isinstance(hora_inicio, time) else hora_inicio
             hora_fin_str = hora_fin.strftime('%H:%M:%S') if isinstance(hora_fin, time) else hora_fin
             
-            if id_reserva_excluir:
-                query = """
-                    SELECT COUNT(*) as conflictos FROM reserva
-                    WHERE id_cancha = ? AND fecha_reserva = ? AND estado_reserva != 'cancelada' AND id_reserva != ?
-                    AND ((hora_inicio < ? AND hora_fin > ?) OR (hora_inicio < ? AND hora_fin > ?) OR (hora_inicio >= ? AND hora_inicio < ?) OR (hora_fin > ? AND hora_fin <= ?))
-                """
-                params = (id_cancha, fecha, id_reserva_excluir, hora_fin_str, hora_inicio_str, hora_fin_str, hora_inicio_str, hora_inicio_str, hora_fin_str, hora_inicio_str, hora_fin_str)
-            else:
-                query = """
-                    SELECT COUNT(*) as conflictos FROM reserva
-                    WHERE id_cancha = ? AND fecha_reserva = ? AND estado_reserva != 'cancelada'
-                    AND ((hora_inicio < ? AND hora_fin > ?) OR (hora_inicio < ? AND hora_fin > ?) OR (hora_inicio >= ? AND hora_inicio < ?) OR (hora_fin > ? AND hora_fin <= ?))
-                """
-                params = (id_cancha, fecha, hora_fin_str, hora_inicio_str, hora_fin_str, hora_inicio_str, hora_inicio_str, hora_fin_str, hora_inicio_str, hora_fin_str)
+            sql = """
+                SELECT COUNT(*) as conflictos FROM reserva
+                WHERE id_cancha = ? AND fecha_reserva = ? AND estado_reserva != 'cancelada'
+                AND ((hora_inicio < ? AND hora_fin > ?) OR (hora_inicio < ? AND hora_fin > ?) OR (hora_inicio >= ? AND hora_inicio < ?) OR (hora_fin > ? AND hora_fin <= ?))
+            """
+            params = [id_cancha, fecha, hora_fin_str, hora_inicio_str, hora_fin_str, hora_inicio_str, hora_inicio_str, hora_fin_str, hora_inicio_str, hora_fin_str]
             
-            cursor.execute(query, params)
+            if id_reserva_excluir:
+                sql += " AND id_reserva != ?"
+                params.append(id_reserva_excluir)
+            
+            cursor.execute(sql, params)
             return cursor.fetchone()['conflictos'] == 0
-        except sqlite3.Error as e:
-            print(f"Error al verificar disponibilidad: {e}")
+        except sqlite3.Error:
             return False
 
     @staticmethod
@@ -181,14 +179,16 @@ class ReservaDAO:
             query = """
                 UPDATE reserva SET id_cliente = ?, id_cancha = ?, fecha_reserva = ?, 
                     hora_inicio = ?, hora_fin = ?, usa_iluminacion = ?,
-                    estado_reserva = ?, monto_total = ?, observaciones = ?
+                    estado_reserva = ?, monto_total = ?, observaciones = ?, id_torneo = ?
                 WHERE id_reserva = ?
             """
-            cursor.execute(query, (reserva.id_cliente, reserva.id_cancha, reserva.fecha_reserva, hora_inicio_str, hora_fin_str, int(reserva.usa_iluminacion), reserva.estado_reserva, reserva.monto_total, reserva.observaciones, reserva.id_reserva))
+            cursor.execute(query, (reserva.id_cliente, reserva.id_cancha, reserva.fecha_reserva, 
+                                   hora_inicio_str, hora_fin_str, int(reserva.usa_iluminacion), 
+                                   reserva.estado_reserva, reserva.monto_total, reserva.observaciones, 
+                                   reserva.id_torneo, reserva.id_reserva))
             conn.commit()
             return cursor.rowcount > 0
-        except sqlite3.Error as e:
-            print(f"Error al actualizar reserva: {e}")
+        except sqlite3.Error:
             return False
 
     @staticmethod
@@ -199,8 +199,7 @@ class ReservaDAO:
             cursor.execute("UPDATE reserva SET estado_reserva = ? WHERE id_reserva = ?", (nuevo_estado, id_reserva))
             conn.commit()
             return cursor.rowcount > 0
-        except sqlite3.Error as e:
-            print(f"Error al cambiar estado: {e}")
+        except sqlite3.Error:
             return False
 
     @staticmethod
@@ -211,8 +210,7 @@ class ReservaDAO:
             cursor.execute("DELETE FROM reserva WHERE id_reserva = ?", (id_reserva,))
             conn.commit()
             return cursor.rowcount > 0
-        except sqlite3.Error as e:
-            print(f"Error al eliminar reserva: {e}")
+        except sqlite3.Error:
             return False
 
     @staticmethod
@@ -238,55 +236,48 @@ class ReservaDAO:
 
     @staticmethod
     def _row_to_reserva(row) -> Reserva:
-        """
-        Convierte una fila de la BD en un objeto Reserva.
-        Realiza la conversión crítica de strings a objetos date/time.
-        """
-        # 1. Parsear Fecha
-        fecha_reserva = row['fecha_reserva']
-        if isinstance(fecha_reserva, str):
-            try:
-                fecha_reserva = datetime.strptime(fecha_reserva, '%Y-%m-%d').date()
-            except ValueError:
-                fecha_reserva = None
+        # Parsear fecha
+        fecha = row['fecha_reserva']
+        if isinstance(fecha, str):
+            try: fecha = datetime.strptime(fecha, '%Y-%m-%d').date()
+            except: fecha = None
+            
+        # Parsear horas
+        def parse_h(h_str):
+            if isinstance(h_str, str):
+                try: return datetime.strptime(h_str, '%H:%M:%S').time()
+                except: 
+                    try: return datetime.strptime(h_str, '%H:%M').time()
+                    except: return None
+            return h_str
 
-        # 2. Parsear Horas
-        def parsear_hora_db(hora_str):
-            if not isinstance(hora_str, str): return hora_str
-            try:
-                # Intenta formato largo (HH:MM:SS)
-                return datetime.strptime(hora_str, '%H:%M:%S').time()
-            except ValueError:
-                try:
-                    # Intenta formato corto (HH:MM)
-                    return datetime.strptime(hora_str, '%H:%M').time()
-                except ValueError:
-                    return None
+        hora_ini = parse_h(row['hora_inicio'])
+        hora_fin = parse_h(row['hora_fin'])
+        
+        # Parsear fecha creación
+        creacion = row['fecha_creacion']
+        if isinstance(creacion, str):
+            try: creacion = datetime.strptime(creacion, '%Y-%m-%d %H:%M:%S.%f')
+            except: creacion = datetime.now()
 
-        hora_inicio = parsear_hora_db(row['hora_inicio'])
-        hora_fin = parsear_hora_db(row['hora_fin'])
-
-        # 3. Parsear Fecha Creación
-        fecha_creacion = row['fecha_creacion']
-        if isinstance(fecha_creacion, str):
-            try:
-                fecha_creacion = datetime.strptime(fecha_creacion, '%Y-%m-%d %H:%M:%S.%f')
-            except ValueError:
-                try:
-                    fecha_creacion = datetime.strptime(fecha_creacion, '%Y-%m-%d %H:%M:%S')
-                except ValueError:
-                    fecha_creacion = datetime.now()
+        # Manejo seguro de id_torneo
+        id_torneo = None
+        try:
+            id_torneo = row['id_torneo']
+        except IndexError:
+            pass # La columna podría no existir si no se migró bien, pero el script debió arreglarlo.
 
         return Reserva(
             id_reserva=row['id_reserva'],
             id_cliente=row['id_cliente'],
             id_cancha=row['id_cancha'],
-            fecha_reserva=fecha_reserva,  # Ahora es un objeto date
-            hora_inicio=hora_inicio,      # Ahora es un objeto time
-            hora_fin=hora_fin,            # Ahora es un objeto time
+            fecha_reserva=fecha,
+            hora_inicio=hora_ini,
+            hora_fin=hora_fin,
             usa_iluminacion=bool(row['usa_iluminacion']),
             estado_reserva=row['estado_reserva'],
             monto_total=row['monto_total'],
-            fecha_creacion=fecha_creacion,
-            observaciones=row['observaciones']
+            fecha_creacion=creacion,
+            observaciones=row['observaciones'],
+            id_torneo=id_torneo
         )

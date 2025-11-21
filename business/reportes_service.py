@@ -1,321 +1,166 @@
 """
-Servicio de Reportes - Generación de reportes y estadísticas
+Servicio de Reportes
+Lógica de negocio para generar estadísticas y reportes.
+CORREGIDO: Ranking dinámico (solo muestra canchas usadas en el mes).
 """
-
-from typing import List, Dict, Tuple
-from datetime import date, datetime
-from collections import defaultdict
+from datetime import date
+import calendar
+from collections import Counter
 from dao.reserva_dao import ReservaDAO
 from dao.cancha_dao import CanchaDAO
 from dao.cliente_dao import ClienteDAO
 from dao.pago_dao import PagoDAO
-
+from dao.torneo_dao import TorneoDAO 
 
 class ReportesService:
-    """Servicio para generación de reportes y estadísticas"""
     
     @staticmethod
-    def reporte_reservas_por_cliente(id_cliente: int) -> Dict:
-        """
-        Genera reporte de reservas de un cliente.
-        
-        Returns:
-            Dict con información del reporte
-        """
-        cliente = ClienteDAO.obtener_por_id(id_cliente)
-        if not cliente:
-            return None
-        
-        reservas = ReservaDAO.obtener_por_cliente(id_cliente)
-        
-        # Estadísticas
-        total_reservas = len(reservas)
-        reservas_confirmadas = len([r for r in reservas if r.estado_reserva == 'confirmada'])
-        reservas_completadas = len([r for r in reservas if r.estado_reserva == 'completada'])
-        reservas_canceladas = len([r for r in reservas if r.estado_reserva == 'cancelada'])
-        reservas_pendientes = len([r for r in reservas if r.estado_reserva == 'pendiente'])
-        
-        monto_total = sum(r.monto_total for r in reservas if r.estado_reserva != 'cancelada')
-        
-        return {
-            'cliente': cliente,
-            'reservas': reservas,
-            'estadisticas': {
-                'total_reservas': total_reservas,
-                'confirmadas': reservas_confirmadas,
-                'completadas': reservas_completadas,
-                'canceladas': reservas_canceladas,
-                'pendientes': reservas_pendientes,
-                'monto_total': monto_total
-            }
-        }
-    
+    def _obtener_rango_mes(anio, mes):
+        _, last_day = calendar.monthrange(anio, mes)
+        return date(anio, mes, 1), date(anio, mes, last_day)
+
     @staticmethod
-    def reporte_reservas_por_cancha(id_cancha: int, fecha_desde: date = None,
-                                    fecha_hasta: date = None) -> Dict:
-        """
-        Genera reporte de reservas de una cancha en un período.
+    def reporte_reservas_por_cliente(fecha_inicio: date = None, fecha_fin: date = None):
+        if not fecha_inicio: fecha_inicio = date(2000, 1, 1)
+        if not fecha_fin: fecha_fin = date(2100, 1, 1)
         
-        Returns:
-            Dict con información del reporte
-        """
-        cancha = CanchaDAO.obtener_por_id(id_cancha)
-        if not cancha:
-            return None
-        
-        # Obtener reservas
-        if fecha_desde and fecha_hasta:
-            todas_reservas = ReservaDAO.obtener_por_rango_fechas(fecha_desde, fecha_hasta)
-            reservas = [r for r in todas_reservas if r.id_cancha == id_cancha]
-        else:
-            reservas = ReservaDAO.obtener_por_cancha(id_cancha)
-        
-        # Estadísticas
-        total_reservas = len(reservas)
-        reservas_activas = len([r for r in reservas if r.estado_reserva in ['confirmada', 'completada']])
-        
-        total_horas = sum(r.calcular_duracion_horas() for r in reservas if r.estado_reserva != 'cancelada')
-        monto_total = sum(r.monto_total for r in reservas if r.estado_reserva != 'cancelada')
-        
-        return {
-            'cancha': cancha,
-            'reservas': reservas,
-            'periodo': {
-                'desde': fecha_desde,
-                'hasta': fecha_hasta
-            },
-            'estadisticas': {
-                'total_reservas': total_reservas,
-                'reservas_activas': reservas_activas,
-                'total_horas': round(total_horas, 2),
-                'monto_total': monto_total
-            }
-        }
-    
-    @staticmethod
-    def reporte_canchas_mas_utilizadas(fecha_desde: date = None,
-                                       fecha_hasta: date = None) -> List[Dict]:
-        """
-        Genera reporte de canchas más utilizadas.
-        
-        Returns:
-            Lista de diccionarios con cancha y estadísticas
-        """
-        # Obtener todas las canchas
-        canchas = CanchaDAO.obtener_todas()
-        
-        # Obtener reservas del período
-        if fecha_desde and fecha_hasta:
-            reservas = ReservaDAO.obtener_por_rango_fechas(fecha_desde, fecha_hasta)
-        else:
-            reservas = ReservaDAO.obtener_todas()
-        
-        # Agrupar por cancha
-        estadisticas_por_cancha = []
-        
-        for cancha in canchas:
-            reservas_cancha = [r for r in reservas if r.id_cancha == cancha.id_cancha 
-                              and r.estado_reserva != 'cancelada']
-            
-            total_reservas = len(reservas_cancha)
-            total_horas = sum(r.calcular_duracion_horas() for r in reservas_cancha)
-            monto_total = sum(r.monto_total for r in reservas_cancha)
-            
-            estadisticas_por_cancha.append({
-                'cancha': cancha,
-                'total_reservas': total_reservas,
-                'total_horas': round(total_horas, 2),
-                'monto_total': monto_total
-            })
-        
-        # Ordenar por total de reservas (más utilizadas primero)
-        estadisticas_por_cancha.sort(key=lambda x: x['total_reservas'], reverse=True)
-        
-        return estadisticas_por_cancha
-    
-    @staticmethod
-    def reporte_utilizacion_mensual(año: int, mes: int) -> Dict:
-        """
-        Genera reporte de utilización mensual de canchas.
-        
-        Returns:
-            Dict con datos para gráficos
-        """
-        # Calcular rango de fechas del mes
-        fecha_inicio = date(año, mes, 1)
-        if mes == 12:
-            fecha_fin = date(año + 1, 1, 1)
-        else:
-            fecha_fin = date(año, mes + 1, 1)
-        
-        # Obtener reservas del mes
         reservas = ReservaDAO.obtener_por_rango_fechas(fecha_inicio, fecha_fin)
-        reservas = [r for r in reservas if r.estado_reserva != 'cancelada']
+        clientes = ClienteDAO.obtener_todos()
+        cliente_map = {c.id_cliente: c for c in clientes}
         
-        # Agrupar por día
-        reservas_por_dia = defaultdict(int)
+        stats = {} 
         for r in reservas:
-            # Convertir fecha si es string
-            if isinstance(r.fecha_reserva, str):
-                from datetime import datetime as dt
-                fecha_obj = dt.strptime(r.fecha_reserva, "%Y-%m-%d").date()
-                dia = fecha_obj.day
-            else:
-                dia = r.fecha_reserva.day
-            reservas_por_dia[dia] += 1
-        
-        # Crear datos para gráfico
-        dias = list(range(1, 32))  # Días del mes
-        cantidad = [reservas_por_dia.get(dia, 0) for dia in dias]
-        
-        return {
-            'año': año,
-            'mes': mes,
-            'dias': dias,
-            'cantidad_reservas': cantidad,
-            'total_reservas': len(reservas),
-            'promedio_diario': round(len(reservas) / 30, 2)
-        }
-    
-    @staticmethod
-    def reporte_facturacion_mensual(año: int) -> Dict:
-        """
-        Genera reporte de facturación por mes del año.
-        
-        Returns:
-            Dict con datos para gráficos de barras
-        """
-        meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
-                 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-        facturacion_por_mes = []
-        
-        for mes in range(1, 13):
-            # Calcular rango del mes
-            fecha_inicio = date(año, mes, 1)
-            if mes == 12:
-                fecha_fin = date(año + 1, 1, 1)
-            else:
-                fecha_fin = date(año, mes + 1, 1)
+            if r.estado_reserva == 'cancelada': continue
+            if r.id_cliente not in stats: stats[r.id_cliente] = {'cantidad': 0, 'monto': 0.0}
+            stats[r.id_cliente]['cantidad'] += 1
+            stats[r.id_cliente]['monto'] += r.monto_total
             
-            # Obtener reservas del mes
-            reservas = ReservaDAO.obtener_por_rango_fechas(fecha_inicio, fecha_fin)
-            monto_mes = sum(r.monto_total for r in reservas if r.estado_reserva != 'cancelada')
+        resultado = []
+        for id_cliente, data in stats.items():
+            cliente = cliente_map.get(id_cliente)
+            if cliente:
+                resultado.append({
+                    'cliente': f"{cliente.nombre} {cliente.apellido}",
+                    'dni': cliente.dni,
+                    'cantidad': data['cantidad'],
+                    'monto': data['monto']
+                })
+        return sorted(resultado, key=lambda x: x['monto'], reverse=True)
+
+    @staticmethod
+    def reporte_reservas_por_cancha(fecha_inicio: date = None, fecha_fin: date = None):
+        if not fecha_inicio: fecha_inicio = date(2000, 1, 1)
+        if not fecha_fin: fecha_fin = date(2100, 1, 1)
+        
+        reservas = ReservaDAO.obtener_por_rango_fechas(fecha_inicio, fecha_fin)
+        canchas = CanchaDAO.obtener_todos()
+        
+        stats = {}
+        for c in canchas:
+            stats[c.id_cancha] = {'nombre': c.nombre, 'cantidad': 0, 'horas': 0.0, 'ingresos': 0.0}
             
-            facturacion_por_mes.append(monto_mes)
-        
-        return {
-            'año': año,
-            'meses': meses,
-            'facturacion': facturacion_por_mes,
-            'total_anual': sum(facturacion_por_mes),
-            'promedio_mensual': round(sum(facturacion_por_mes) / 12, 2)
-        }
-    
-    @staticmethod
-    def reporte_estado_reservas() -> Dict:
-        """
-        Genera reporte del estado actual de todas las reservas.
-        
-        Returns:
-            Dict con conteo por estado
-        """
-        conteo = ReservaDAO.contar_por_estado()
-        total = sum(conteo.values())
-        
-        # Calcular porcentajes
-        porcentajes = {}
-        for estado, cantidad in conteo.items():
-            porcentajes[estado] = round((cantidad / total * 100), 2) if total > 0 else 0
-        
-        return {
-            'conteo': conteo,
-            'porcentajes': porcentajes,
-            'total': total
-        }
-    
-    @staticmethod
-    def reporte_ingresos_periodo(fecha_desde: date, fecha_hasta: date) -> Dict:
-        """
-        Genera un reporte de ingresos en un período dado.
+        torneos_cache = {}
 
-        Args:
-            fecha_desde (date): Fecha inicial (incluida)
-            fecha_hasta (date): Fecha final (incluida)
-
-        Returns:
-            Dict con:
-                - total_reservas
-                - ingresos_totales (suma de montos de reservas no canceladas)
-                - pagos_recibidos (suma de pagos registrados)
-                - saldo_pendiente (ingresos_totales - pagos_recibidos)
-                - promedio_por_reserva
-        """
-        # Obtener reservas del período
-        reservas = ReservaDAO.obtener_por_rango_fechas(fecha_desde, fecha_hasta)
-
-        # Consideramos solo reservas que no estén canceladas
-        reservas_vigentes = [
-            r for r in reservas
-            if r.estado_reserva != 'cancelada'
-        ]
-
-        total_reservas = len(reservas_vigentes)
-
-        # Ingresos teóricos: lo que se debería cobrar
-        ingresos_totales = sum(r.monto_total for r in reservas_vigentes)
-
-        # Pagos efectivamente recibidos
-        pagos_recibidos = 0.0
-        for r in reservas_vigentes:
-            pagos_recibidos += PagoDAO.calcular_total_pagado_reserva(r.id_reserva)
-
-        # Saldo pendiente
-        saldo_pendiente = ingresos_totales - pagos_recibidos
-
-        # Promedio por reserva
-        if total_reservas > 0:
-            promedio_por_reserva = ingresos_totales / total_reservas
-        else:
-            promedio_por_reserva = 0.0
-
-        return {
-            'total_reservas': total_reservas,
-            'ingresos_totales': ingresos_totales,
-            'pagos_recibidos': pagos_recibidos,
-            'saldo_pendiente': saldo_pendiente,
-            'promedio_por_reserva': promedio_por_reserva
-        }
-    
-    @staticmethod
-    def reporte_pagos_pendientes() -> List[Dict]:
-        """
-        Genera reporte de reservas con pagos pendientes.
-        
-        Returns:
-            Lista de reservas con saldo pendiente
-        """
-        reservas = ReservaDAO.obtener_todas()
-        reservas_pendientes = []
-        
-        for reserva in reservas:
-            if reserva.estado_reserva in ['pendiente', 'confirmada']:
-                total_pagado = PagoDAO.calcular_total_pagado_reserva(reserva.id_reserva)
-                saldo_pendiente = reserva.monto_total - total_pagado
+        for r in reservas:
+            if r.estado_reserva == 'cancelada': continue
+            if r.id_cancha in stats:
+                stats[r.id_cancha]['cantidad'] += 1
+                stats[r.id_cancha]['horas'] += r.calcular_duracion_horas()
                 
-                if saldo_pendiente > 0:
-                    cliente = ClienteDAO.obtener_por_id(reserva.id_cliente)
-                    cancha = CanchaDAO.obtener_por_id(reserva.id_cancha)
-                    
-                    reservas_pendientes.append({
-                        'reserva': reserva,
-                        'cliente': cliente,
-                        'cancha': cancha,
-                        'monto_total': reserva.monto_total,
-                        'total_pagado': total_pagado,
-                        'saldo_pendiente': saldo_pendiente
-                    })
+                monto = r.monto_total
+                if r.id_torneo:
+                    if r.id_torneo not in torneos_cache:
+                        t = TorneoDAO.obtener_por_id(r.id_torneo)
+                        if t and t.cantidad_canchas > 0:
+                            torneos_cache[r.id_torneo] = t.precio_total / t.cantidad_canchas
+                        else:
+                            torneos_cache[r.id_torneo] = 0.0
+                    monto = torneos_cache[r.id_torneo]
+                
+                stats[r.id_cancha]['ingresos'] += monto
         
-        # Ordenar por saldo pendiente (mayor primero)
-        reservas_pendientes.sort(key=lambda x: x['saldo_pendiente'], reverse=True)
+        return list(stats.values())
+
+    @staticmethod
+    def reporte_canchas_mas_utilizadas():
+        return ReportesService.reporte_ranking_canchas_mensual(date.today().year, date.today().month)
+
+    @staticmethod
+    def reporte_ingresos_mensuales(anio: int):
+        ingresos_por_mes = {k: 0.0 for k in range(1, 13)}
         
-        return reservas_pendientes
+        reservas = ReservaDAO.obtener_por_rango_fechas(date(anio, 1, 1), date(anio, 12, 31))
+        for r in reservas:
+            if r.estado_reserva in ['confirmada', 'completada'] and not r.id_torneo:
+                ingresos_por_mes[r.fecha_reserva.month] += r.monto_total
+        
+        torneos = TorneoDAO.obtener_todos()
+        for t in torneos:
+            if t.estado != 'cancelado' and t.fecha.year == anio:
+                ingresos_por_mes[t.fecha.month] += t.precio_total
+                
+        return ingresos_por_mes
+
+    # MÉTODOS GRÁFICOS
+    @staticmethod
+    def reporte_estado_reservas_mensual(anio, mes):
+        inicio, fin = ReportesService._obtener_rango_mes(anio, mes)
+        reservas = ReservaDAO.obtener_por_rango_fechas(inicio, fin)
+        conteo = {'pendiente': 0, 'confirmada': 0, 'cancelada': 0, 'completada': 0}
+        for r in reservas:
+            if r.estado_reserva in conteo: conteo[r.estado_reserva] += 1
+        return conteo
+
+    @staticmethod
+    def reporte_ranking_canchas_mensual(anio, mes):
+        """Ranking mensual dinámico (solo canchas con uso)"""
+        inicio, fin = ReportesService._obtener_rango_mes(anio, mes)
+        reservas = ReservaDAO.obtener_por_rango_fechas(inicio, fin)
+        
+        # Mapa de nombres para referencia rápida
+        canchas = CanchaDAO.obtener_todos()
+        cancha_map = {c.id_cancha: c.nombre for c in canchas}
+        
+        # NO inicializamos en 0. El dict empieza vacío.
+        stats = {} 
+        torneos_cache = {}
+        
+        for r in reservas:
+            if r.estado_reserva == 'cancelada': continue
+            
+            # Si es la primera vez que vemos esta cancha en el mes, la inicializamos
+            if r.id_cancha not in stats: 
+                stats[r.id_cancha] = {'cantidad': 0, 'monto': 0.0}
+            
+            stats[r.id_cancha]['cantidad'] += 1
+            
+            monto = r.monto_total
+            if r.id_torneo:
+                if r.id_torneo not in torneos_cache:
+                    t = TorneoDAO.obtener_por_id(r.id_torneo)
+                    if t and t.cantidad_canchas > 0:
+                        val = float(t.precio_total) / float(t.cantidad_canchas)
+                        torneos_cache[r.id_torneo] = val
+                    else:
+                        torneos_cache[r.id_torneo] = 0.0
+                monto = torneos_cache[r.id_torneo]
+            
+            stats[r.id_cancha]['monto'] += monto
+            
+        resultado = []
+        for id_c, data in stats.items():
+            nombre = cancha_map.get(id_c)
+            if nombre: # Solo si la cancha existe activa
+                resultado.append({
+                    'nombre': nombre,
+                    'reservas': data['cantidad'],
+                    'ingresos': int(data['monto'])
+                })
+            
+        # Ordenamos y cortamos el Top 6
+        # Si hay 3 elementos, devuelve 3. Si hay 10, devuelve 6.
+        return sorted(resultado, key=lambda x: x['reservas'], reverse=True)[:6]
+
+    @staticmethod
+    def reporte_ingresos_anual(anio: int):
+        return ReportesService.reporte_ingresos_mensuales(anio)

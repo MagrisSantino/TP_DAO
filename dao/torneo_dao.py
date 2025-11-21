@@ -1,115 +1,98 @@
-"""
-DAO para la entidad Torneo
-"""
-
 import sqlite3
 from typing import List, Optional
+from datetime import datetime, time
 from models.torneo import Torneo
 from database.db_connection import get_db_connection
 
-
 class TorneoDAO:
-    """Data Access Object para Torneo"""
     
     @staticmethod
     def insertar(torneo: Torneo) -> Optional[int]:
-        """Inserta un nuevo torneo."""
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
+            
+            h_ini = torneo.hora_inicio.strftime('%H:%M:%S') if isinstance(torneo.hora_inicio, time) else torneo.hora_inicio
+            h_fin = torneo.hora_fin.strftime('%H:%M:%S') if isinstance(torneo.hora_fin, time) else torneo.hora_fin
+            
             query = """
-                INSERT INTO torneo (nombre, deporte, fecha_inicio, fecha_fin, 
-                                    cantidad_equipos, estado_torneo, descripcion)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO torneo (nombre, deporte, fecha, hora_inicio, hora_fin, 
+                                    cantidad_canchas, precio_total, estado, id_cliente)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             cursor.execute(query, (
-                torneo.nombre, torneo.deporte, torneo.fecha_inicio,
-                torneo.fecha_fin, torneo.cantidad_equipos,
-                torneo.estado_torneo, torneo.descripcion
+                torneo.nombre, torneo.deporte, torneo.fecha,
+                h_ini, h_fin, torneo.cantidad_canchas, 
+                torneo.precio_total, torneo.estado, torneo.id_cliente
             ))
             conn.commit()
-            torneo.id_torneo = cursor.lastrowid
             return cursor.lastrowid
         except sqlite3.Error as e:
             print(f"Error al insertar torneo: {e}")
             return None
-    
+
+    @staticmethod
+    def obtener_todos() -> List[Torneo]:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM torneo WHERE estado != 'cancelado' ORDER BY fecha DESC")
+            rows = cursor.fetchall()
+            return [TorneoDAO._row_to_torneo(row) for row in rows]
+        except sqlite3.Error:
+            return []
+
     @staticmethod
     def obtener_por_id(id_torneo: int) -> Optional[Torneo]:
-        """Obtiene un torneo por su ID."""
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM torneo WHERE id_torneo = ?", (id_torneo,))
             row = cursor.fetchone()
-            return Torneo.from_dict(dict(row)) if row else None
-        except sqlite3.Error as e:
-            print(f"Error al obtener torneo: {e}")
+            return TorneoDAO._row_to_torneo(row) if row else None
+        except sqlite3.Error:
             return None
-    
-    @staticmethod
-    def obtener_todos() -> List[Torneo]:
-        """Obtiene todos los torneos."""
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM torneo ORDER BY fecha_inicio DESC")
-            rows = cursor.fetchall()
-            return [Torneo.from_dict(dict(row)) for row in rows]
-        except sqlite3.Error as e:
-            print(f"Error al obtener torneos: {e}")
-            return []
-    
-    @staticmethod
-    def obtener_activos() -> List[Torneo]:
-        """Obtiene torneos activos (planificados o en curso)."""
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            query = """
-                SELECT * FROM torneo 
-                WHERE estado_torneo IN ('planificado', 'en_curso')
-                ORDER BY fecha_inicio
-            """
-            cursor.execute(query)
-            rows = cursor.fetchall()
-            return [Torneo.from_dict(dict(row)) for row in rows]
-        except sqlite3.Error as e:
-            print(f"Error al obtener torneos activos: {e}")
-            return []
-    
-    @staticmethod
-    def actualizar(torneo: Torneo) -> bool:
-        """Actualiza un torneo."""
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            query = """
-                UPDATE torneo 
-                SET nombre = ?, deporte = ?, fecha_inicio = ?, fecha_fin = ?,
-                    cantidad_equipos = ?, estado_torneo = ?, descripcion = ?
-                WHERE id_torneo = ?
-            """
-            cursor.execute(query, (
-                torneo.nombre, torneo.deporte, torneo.fecha_inicio,
-                torneo.fecha_fin, torneo.cantidad_equipos,
-                torneo.estado_torneo, torneo.descripcion, torneo.id_torneo
-            ))
-            conn.commit()
-            return cursor.rowcount > 0
-        except sqlite3.Error as e:
-            print(f"Error al actualizar torneo: {e}")
-            return False
-    
+
     @staticmethod
     def eliminar(id_torneo: int) -> bool:
-        """Elimina un torneo (elimina en cascada equipos y partidos)."""
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM torneo WHERE id_torneo = ?", (id_torneo,))
+            cursor.execute("UPDATE torneo SET estado = 'cancelado' WHERE id_torneo = ?", (id_torneo,))
             conn.commit()
             return cursor.rowcount > 0
-        except sqlite3.Error as e:
-            print(f"Error al eliminar torneo: {e}")
+        except sqlite3.Error:
             return False
+
+    @staticmethod
+    def _row_to_torneo(row) -> Torneo:
+        fecha = row['fecha']
+        if isinstance(fecha, str):
+            try: fecha = datetime.strptime(fecha, '%Y-%m-%d').date()
+            except: pass
+            
+        def parse_h(h):
+            if isinstance(h, str):
+                try: return datetime.strptime(h, '%H:%M:%S').time()
+                except:
+                    try: return datetime.strptime(h, '%H:%M').time()
+                    except: pass
+            return h
+
+        # Manejo seguro id_cliente (por si la migración falló o es viejo)
+        id_cliente = None
+        try: id_cliente = row['id_cliente']
+        except: pass
+
+        return Torneo(
+            id_torneo=row['id_torneo'],
+            nombre=row['nombre'],
+            deporte=row['deporte'],
+            fecha=fecha,
+            hora_inicio=parse_h(row['hora_inicio']),
+            hora_fin=parse_h(row['hora_fin']),
+            cantidad_canchas=row['cantidad_canchas'],
+            precio_total=row['precio_total'],
+            estado=row['estado'],
+            id_cliente=id_cliente
+        )

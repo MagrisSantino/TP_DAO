@@ -1,499 +1,267 @@
 """
-Ventana de Reportes y Estadísticas
+Ventana Unificada de Reportes y Gráficos
+ACTUALIZADO: Gráfico de Ranking limpio (sin etiquetas de texto sobre las barras).
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from datetime import date, timedelta
-from tkcalendar import DateEntry
+from datetime import date
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from business.reportes_service import ReportesService
-from utils.helpers import formatear_fecha, formatear_monto
-
+from utils.helpers import formatear_monto
 
 class ReportesWindow:
-    """Ventana de reportes y estadísticas"""
+    """Ventana principal de reportes unificados"""
     
     def __init__(self, parent):
         self.window = tk.Toplevel(parent)
-        self.window.title("Reportes y Estadísticas")
-        self.window.geometry("1000x700")
+        self.window.title("Reportes del Sistema")
+        
+        try:
+            self.window.state('zoomed')
+        except:
+            try:
+                self.window.attributes('-zoomed', True)
+            except:
+                screen_width = self.window.winfo_screenwidth()
+                screen_height = self.window.winfo_screenheight()
+                self.window.geometry(f"{screen_width-50}x{screen_height-100}+0+0")
+                
         self.window.configure(bg='#f0f0f0')
         
-        self.crear_widgets()
-        self.centrar_ventana()
+        self.style = ttk.Style()
+        self.style.configure("TNotebook.Tab", font=('Arial', 11, 'bold'), padding=[20, 10])
         
-        # Cargar reportes iniciales
-        self.cargar_estado_reservas()
-    
-    def centrar_ventana(self):
-        """Centra la ventana"""
-        self.window.update_idletasks()
-        ancho = self.window.winfo_width()
-        alto = self.window.winfo_height()
-        x = (self.window.winfo_screenwidth() // 2) - (ancho // 2)
-        y = (self.window.winfo_screenheight() // 2) - (alto // 2)
-        self.window.geometry(f'{ancho}x{alto}+{x}+{y}')
+        self.anio_actual = date.today().year
+        self.mes_actual = date.today().month
+        
+        self.crear_widgets()
+        
+        self.window.lift()
+        self.window.focus_force()
+        
+        self.window.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
+
+    def cerrar_ventana(self):
+        plt.close('all')
+        self.window.destroy()
     
     def crear_widgets(self):
-        """Crea todos los widgets"""
-        # Frame superior
-        frame_top = tk.Frame(self.window, bg='#f0f0f0')
-        frame_top.pack(fill=tk.X, padx=20, pady=10)
+        tk.Label(self.window, text="📊 Reportes y Estadísticas", font=('Arial', 18, 'bold'), bg='#f0f0f0', fg='#2c3e50').pack(pady=15)
         
-        tk.Label(
-            frame_top,
-            text="📊 Reportes y Estadísticas",
-            font=('Arial', 16, 'bold'),
-            bg='#f0f0f0',
-            fg='#2c3e50'
-        ).pack(side=tk.LEFT)
-        
-        # Notebook (pestañas)
         self.notebook = ttk.Notebook(self.window)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
-        # Pestaña 1: Estado de Reservas
-        self.crear_tab_estado_reservas()
+        self.tab_estado = tk.Frame(self.notebook, bg='#f0f0f0')
+        self.tab_ranking = tk.Frame(self.notebook, bg='#f0f0f0')
+        self.tab_ingresos = tk.Frame(self.notebook, bg='#f0f0f0')
         
-        # Pestaña 2: Canchas Más Utilizadas
-        self.crear_tab_canchas_ranking()
+        self.notebook.add(self.tab_estado, text="Estado de Reservas")
+        self.notebook.add(self.tab_ranking, text="Ranking de Canchas")
+        self.notebook.add(self.tab_ingresos, text="Ingresos")
         
-        # Pestaña 3: Pagos Pendientes
-        self.crear_tab_pagos_pendientes()
-        
-        # Pestaña 4: Reporte por Cliente
-        self.crear_tab_reporte_cliente()
-        
-        # Pestaña 5: Ingresos por Período
+        self.crear_tab_estado()
+        self.crear_tab_ranking()
         self.crear_tab_ingresos()
-    
-    def crear_tab_estado_reservas(self):
-        """Pestaña de estado de reservas"""
-        frame = tk.Frame(self.notebook, bg='#f0f0f0')
-        self.notebook.add(frame, text='📈 Estado de Reservas')
-        
-        # Frame para gráfico
-        info_frame = tk.LabelFrame(
-            frame,
-            text="Distribución de Reservas por Estado",
-            font=('Arial', 12, 'bold'),
-            bg='#f0f0f0',
-            padx=20,
-            pady=20
-        )
-        info_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
-        
-        # Text widget para mostrar resultados
-        self.text_estado = tk.Text(
-            info_frame,
-            font=('Arial', 11),
-            wrap=tk.WORD,
-            height=15
-        )
-        self.text_estado.pack(fill=tk.BOTH, expand=True)
-        
-        # Botón actualizar
-        tk.Button(
-            frame,
-            text="🔄 Actualizar",
-            command=self.cargar_estado_reservas,
-            bg='#3498db',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=20,
-            pady=10
-        ).pack(pady=10)
-    
-    def crear_tab_canchas_ranking(self):
-        """Pestaña de canchas más utilizadas"""
-        frame = tk.Frame(self.notebook, bg='#f0f0f0')
-        self.notebook.add(frame, text='🏆 Ranking de Canchas')
-        
-        # Tabla
-        tabla_frame = tk.Frame(frame, bg='#f0f0f0')
-        tabla_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
-        
-        scrollbar = ttk.Scrollbar(tabla_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        self.tree_ranking = ttk.Treeview(
-            tabla_frame,
-            columns=('Posición', 'Cancha', 'Deporte', 'Total Reservas', 'Total Horas', 'Ingresos'),
-            show='headings',
-            yscrollcommand=scrollbar.set
-        )
-        scrollbar.config(command=self.tree_ranking.yview)
-        
-        self.tree_ranking.heading('Posición', text='#')
-        self.tree_ranking.heading('Cancha', text='Cancha')
-        self.tree_ranking.heading('Deporte', text='Deporte')
-        self.tree_ranking.heading('Total Reservas', text='Reservas')
-        self.tree_ranking.heading('Total Horas', text='Horas')
-        self.tree_ranking.heading('Ingresos', text='Ingresos')
-        
-        self.tree_ranking.column('Posición', width=50, anchor='center')
-        self.tree_ranking.column('Cancha', width=200)
-        self.tree_ranking.column('Deporte', width=120)
-        self.tree_ranking.column('Total Reservas', width=100, anchor='center')
-        self.tree_ranking.column('Total Horas', width=100, anchor='center')
-        self.tree_ranking.column('Ingresos', width=120, anchor='e')
-        
-        self.tree_ranking.pack(fill=tk.BOTH, expand=True)
-        
-        # Botón actualizar
-        tk.Button(
-            frame,
-            text="🔄 Actualizar Ranking",
-            command=self.cargar_ranking_canchas,
-            bg='#2ecc71',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=20,
-            pady=10
-        ).pack(pady=10)
-        
-        # Cargar datos iniciales
-        self.cargar_ranking_canchas()
-    
-    def crear_tab_pagos_pendientes(self):
-        """Pestaña de pagos pendientes"""
-        frame = tk.Frame(self.notebook, bg='#f0f0f0')
-        self.notebook.add(frame, text='💰 Pagos Pendientes')
-        
-        # Tabla
-        tabla_frame = tk.Frame(frame, bg='#f0f0f0')
-        tabla_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
-        
-        scrollbar = ttk.Scrollbar(tabla_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        self.tree_pagos = ttk.Treeview(
-            tabla_frame,
-            columns=('ID Reserva', 'Cliente', 'Fecha', 'Monto Total', 'Pagado', 'Pendiente'),
-            show='headings',
-            yscrollcommand=scrollbar.set
-        )
-        scrollbar.config(command=self.tree_pagos.yview)
-        
-        self.tree_pagos.heading('ID Reserva', text='ID')
-        self.tree_pagos.heading('Cliente', text='Cliente')
-        self.tree_pagos.heading('Fecha', text='Fecha Reserva')
-        self.tree_pagos.heading('Monto Total', text='Total')
-        self.tree_pagos.heading('Pagado', text='Pagado')
-        self.tree_pagos.heading('Pendiente', text='Pendiente')
-        
-        self.tree_pagos.column('ID Reserva', width=50, anchor='center')
-        self.tree_pagos.column('Cliente', width=200)
-        self.tree_pagos.column('Fecha', width=120, anchor='center')
-        self.tree_pagos.column('Monto Total', width=120, anchor='e')
-        self.tree_pagos.column('Pagado', width=120, anchor='e')
-        self.tree_pagos.column('Pendiente', width=120, anchor='e')
-        
-        self.tree_pagos.pack(fill=tk.BOTH, expand=True)
-        
-        # Tag para resaltar pendientes
-        self.tree_pagos.tag_configure('pendiente', background='#fff3cd')
-        
-        # Botón actualizar
-        tk.Button(
-            frame,
-            text="🔄 Actualizar Pagos Pendientes",
-            command=self.cargar_pagos_pendientes,
-            bg='#f39c12',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=20,
-            pady=10
-        ).pack(pady=10)
-        
-        # Cargar datos iniciales
-        self.cargar_pagos_pendientes()
-    
-    def crear_tab_reporte_cliente(self):
-        """Pestaña de reporte por cliente"""
-        frame = tk.Frame(self.notebook, bg='#f0f0f0')
-        self.notebook.add(frame, text='👤 Por Cliente')
-        
-        # Frame superior para búsqueda
-        search_frame = tk.Frame(frame, bg='#f0f0f0')
-        search_frame.pack(fill=tk.X, padx=20, pady=20)
-        
-        tk.Label(
-            search_frame,
-            text="Buscar Cliente:",
-            font=('Arial', 11),
-            bg='#f0f0f0'
-        ).pack(side=tk.LEFT, padx=(0, 10))
-        
-        self.entry_buscar_cliente = tk.Entry(search_frame, font=('Arial', 11), width=30)
-        self.entry_buscar_cliente.pack(side=tk.LEFT, padx=(0, 10))
-        
-        tk.Button(
-            search_frame,
-            text="🔍 Buscar",
-            command=self.buscar_reporte_cliente,
-            bg='#3498db',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=15,
-            pady=8
-        ).pack(side=tk.LEFT)
-        
-        # Text widget para resultados
-        result_frame = tk.LabelFrame(
-            frame,
-            text="Resultados",
-            font=('Arial', 11, 'bold'),
-            bg='#f0f0f0',
-            padx=20,
-            pady=20
-        )
-        result_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
-        
-        self.text_cliente = tk.Text(
-            result_frame,
-            font=('Arial', 10),
-            wrap=tk.WORD
-        )
-        self.text_cliente.pack(fill=tk.BOTH, expand=True)
-    
-    def crear_tab_ingresos(self):
-        """Pestaña de ingresos por período"""
-        frame = tk.Frame(self.notebook, bg='#f0f0f0')
-        self.notebook.add(frame, text='💵 Ingresos')
-        
-        # Frame para selector de fechas
-        fecha_frame = tk.Frame(frame, bg='#f0f0f0')
-        fecha_frame.pack(fill=tk.X, padx=20, pady=20)
-        
-        tk.Label(
-            fecha_frame,
-            text="Desde:",
-            font=('Arial', 11),
-            bg='#f0f0f0'
-        ).pack(side=tk.LEFT, padx=(0, 10))
-        
-        self.date_desde = DateEntry(
-            fecha_frame,
-            width=15,
-            background='#3498db',
-            foreground='white',
-            borderwidth=2,
-            font=('Arial', 10),
-            date_pattern='dd/mm/yyyy'
-        )
-        self.date_desde.pack(side=tk.LEFT, padx=(0, 20))
-        
-        tk.Label(
-            fecha_frame,
-            text="Hasta:",
-            font=('Arial', 11),
-            bg='#f0f0f0'
-        ).pack(side=tk.LEFT, padx=(0, 10))
-        
-        self.date_hasta = DateEntry(
-            fecha_frame,
-            width=15,
-            background='#3498db',
-            foreground='white',
-            borderwidth=2,
-            font=('Arial', 10),
-            date_pattern='dd/mm/yyyy'
-        )
-        self.date_hasta.pack(side=tk.LEFT, padx=(0, 20))
-        
-        tk.Button(
-            fecha_frame,
-            text="📊 Generar Reporte",
-            command=self.generar_reporte_ingresos,
-            bg='#2ecc71',
-            fg='white',
-            font=('Arial', 10, 'bold'),
-            relief=tk.FLAT,
-            cursor='hand2',
-            padx=15,
-            pady=8
-        ).pack(side=tk.LEFT)
-        
-        # Text widget para resultados
-        result_frame = tk.LabelFrame(
-            frame,
-            text="Reporte de Ingresos",
-            font=('Arial', 11, 'bold'),
-            bg='#f0f0f0',
-            padx=20,
-            pady=20
-        )
-        result_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
-        
-        self.text_ingresos = tk.Text(
-            result_frame,
-            font=('Arial', 10),
-            wrap=tk.WORD
-        )
-        self.text_ingresos.pack(fill=tk.BOTH, expand=True)
-    
-    # ========== MÉTODOS PARA CARGAR DATOS ==========
-    
-    def cargar_estado_reservas(self):
-        """Carga el reporte de estado de reservas"""
-        self.text_estado.delete('1.0', tk.END)
-        
-        reporte = ReportesService.reporte_estado_reservas()
-        
-        if reporte:
-            self.text_estado.insert(tk.END, "═" * 60 + "\n")
-            self.text_estado.insert(tk.END, "  ESTADO DE RESERVAS\n")
-            self.text_estado.insert(tk.END, "═" * 60 + "\n\n")
-            
-            total = sum(reporte['conteo'].values())
-            
-            for estado, cantidad in reporte['conteo'].items():
-                porcentaje = (cantidad / total * 100) if total > 0 else 0
-                
-                self.text_estado.insert(tk.END, f"📍 {estado.upper()}\n")
-                self.text_estado.insert(tk.END, f"   Cantidad: {cantidad}\n")
-                self.text_estado.insert(tk.END, f"   Porcentaje: {porcentaje:.1f}%\n\n")
-            
-            self.text_estado.insert(tk.END, "─" * 60 + "\n")
-            self.text_estado.insert(tk.END, f"TOTAL DE RESERVAS: {total}\n")
-            self.text_estado.insert(tk.END, "─" * 60 + "\n")
-    
-    def cargar_ranking_canchas(self):
-        """Carga el ranking de canchas más utilizadas"""
-        # Limpiar tabla
-        for item in self.tree_ranking.get_children():
-            self.tree_ranking.delete(item)
-        
-        ranking = ReportesService.reporte_canchas_mas_utilizadas()
-        
-        for i, item in enumerate(ranking, 1):
-            cancha = item['cancha']
-            total_reservas = item.get('total_reservas', 0)
-            total_horas = item.get('total_horas', 0)
-            
-            # Intentar obtener ingresos con múltiples nombres de clave
-            ingresos = item.get('monto_total', 0)
-            self.tree_ranking.insert('', tk.END, values=(
-                f"#{i}",
-                cancha.nombre,
-                cancha.tipo_deporte,
-                total_reservas,
-                f"{total_horas:.1f}h",
-                formatear_monto(ingresos)
-            ))
-    
-    def cargar_pagos_pendientes(self):
-        """Carga las reservas con pagos pendientes"""
-        # Limpiar tabla
-        for item in self.tree_pagos.get_children():
-            self.tree_pagos.delete(item)
-        
-        pendientes = ReportesService.reporte_pagos_pendientes()
-        
-        for item in pendientes:
-            reserva = item['reserva']
-            
-            # Obtener nombre del cliente
-            from dao.cliente_dao import ClienteDAO
-            cliente = ClienteDAO.obtener_por_id(reserva.id_cliente)
-            nombre_cliente = cliente.get_nombre_completo() if cliente else "N/A"
-            
-            self.tree_pagos.insert('', tk.END, values=(
-                reserva.id_reserva,
-                nombre_cliente,
-                formatear_fecha(reserva.fecha_reserva),
-                formatear_monto(item['monto_total']),
-                formatear_monto(item['total_pagado']),
-                formatear_monto(item['saldo_pendiente'])
-            ), tags=('pendiente',))
 
-    def buscar_reporte_cliente(self):
-        """Busca y genera reporte de un cliente"""
-        self.text_cliente.delete('1.0', tk.END)
+    # 1. ESTADO DE RESERVAS
+    def crear_tab_estado(self):
+        frame_filtros = tk.Frame(self.tab_estado, bg='#f0f0f0', pady=10)
+        frame_filtros.pack(fill=tk.X)
         
-        termino = self.entry_buscar_cliente.get().strip()
+        tk.Label(frame_filtros, text="Mes:", bg='#f0f0f0', font=('Arial', 11)).pack(side=tk.LEFT, padx=5)
+        self.cmb_mes_estado = ttk.Combobox(frame_filtros, values=list(range(1, 13)), width=3, state='readonly', font=('Arial', 11))
+        self.cmb_mes_estado.set(self.mes_actual)
+        self.cmb_mes_estado.pack(side=tk.LEFT, padx=5)
         
-        if not termino:
-            messagebox.showwarning("Advertencia", "Ingrese un término de búsqueda")
-            return
+        tk.Label(frame_filtros, text="Año:", bg='#f0f0f0', font=('Arial', 11)).pack(side=tk.LEFT, padx=5)
+        self.spin_anio_estado = tk.Spinbox(frame_filtros, from_=2020, to=2030, width=5, font=('Arial', 11))
+        self.spin_anio_estado.delete(0, tk.END)
+        self.spin_anio_estado.insert(0, self.anio_actual)
+        self.spin_anio_estado.pack(side=tk.LEFT, padx=5)
         
-        from business.cliente_service import ClienteService
-        clientes = ClienteService.buscar_clientes(termino)
+        tk.Button(frame_filtros, text="Actualizar", command=self.cargar_grafico_estado, bg='#3498db', fg='white', relief=tk.FLAT, font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=15)
         
-        if not clientes:
-            self.text_cliente.insert(tk.END, "No se encontraron clientes.\n")
-            return
+        self.lbl_total_reservas = tk.Label(self.tab_estado, text="", font=('Arial', 14, 'bold'), bg='#f0f0f0', fg='#34495e')
+        self.lbl_total_reservas.pack(pady=(0, 10))
+
+        self.frame_graf_estado = tk.Frame(self.tab_estado, bg='white', relief=tk.RAISED, bd=1)
+        self.frame_graf_estado.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
-        if len(clientes) > 1:
-            self.text_cliente.insert(tk.END, f"Se encontraron {len(clientes)} clientes:\n\n")
-            for cliente in clientes:
-                self.text_cliente.insert(tk.END, f"• {cliente.get_nombre_completo()} (DNI: {cliente.dni})\n")
-            self.text_cliente.insert(tk.END, "\nSeleccione un cliente más específico.\n")
-            return
+        self.cargar_grafico_estado()
+
+    def cargar_grafico_estado(self):
+        for widget in self.frame_graf_estado.winfo_children(): widget.destroy()
         
-        # Generar reporte del cliente
-        cliente = clientes[0]
-        reporte = ReportesService.reporte_reservas_por_cliente(cliente.id_cliente)
-        
-        if reporte:
-            stats = reporte['estadisticas']
+        try:
+            anio = int(self.spin_anio_estado.get())
+            mes = int(self.cmb_mes_estado.get())
+            datos = ReportesService.reporte_estado_reservas_mensual(anio, mes)
             
-            self.text_cliente.insert(tk.END, "═" * 60 + "\n")
-            self.text_cliente.insert(tk.END, f"  REPORTE DE CLIENTE\n")
-            self.text_cliente.insert(tk.END, "═" * 60 + "\n\n")
+            val_confirmadas = datos.get('confirmada', 0) + datos.get('completada', 0)
+            val_pendientes = datos.get('pendiente', 0)
+            val_canceladas = datos.get('cancelada', 0)
+            total_reservas = val_confirmadas + val_pendientes + val_canceladas
             
-            self.text_cliente.insert(tk.END, f"👤 Cliente: {cliente.get_nombre_completo()}\n")
-            self.text_cliente.insert(tk.END, f"📧 Email: {cliente.email}\n")
-            self.text_cliente.insert(tk.END, f"📞 Teléfono: {cliente.telefono}\n\n")
+            self.lbl_total_reservas.config(text=f"Cantidad de Reservas: {total_reservas}")
+
+            if total_reservas == 0:
+                tk.Label(self.frame_graf_estado, text="Sin datos para este período", bg='white', font=('Arial', 12)).pack(expand=True)
+                return
+
+            sizes = []
+            labels = []
+            colors = []
             
-            self.text_cliente.insert(tk.END, "─" * 60 + "\n")
-            self.text_cliente.insert(tk.END, "ESTADÍSTICAS\n")
-            self.text_cliente.insert(tk.END, "─" * 60 + "\n\n")
+            if val_confirmadas > 0:
+                sizes.append(val_confirmadas)
+                labels.append('Confirmadas')
+                colors.append('#2ecc71')
+            if val_pendientes > 0:
+                sizes.append(val_pendientes)
+                labels.append('Pendientes')
+                colors.append('#f1c40f')
+            if val_canceladas > 0:
+                sizes.append(val_canceladas)
+                labels.append('Canceladas')
+                colors.append('#e74c3c')
+
+            fig, ax = plt.subplots(figsize=(6, 5))
+            ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90, textprops={'fontsize': 11})
+            ax.axis('equal')
+            ax.set_title(f"Estado de Reservas - {mes}/{anio}", fontsize=14, fontweight='bold', pad=20)
             
-            self.text_cliente.insert(tk.END, f"Total de reservas: {stats['total_reservas']}\n")
-            self.text_cliente.insert(tk.END, f"Confirmadas: {stats['confirmadas']}\n")
-            self.text_cliente.insert(tk.END, f"Pendientes: {stats['pendientes']}\n")
-            self.text_cliente.insert(tk.END, f"Canceladas: {stats['canceladas']}\n")
-            self.text_cliente.insert(tk.END, f"Completadas: {stats['completadas']}\n\n")
+            canvas = FigureCanvasTkAgg(fig, master=self.frame_graf_estado)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
             
-            self.text_cliente.insert(tk.END, f"Monto total facturado: {formatear_monto(stats['monto_total'])}\n")
-    
-    def generar_reporte_ingresos(self):
-        """Genera reporte de ingresos por período"""
-        self.text_ingresos.delete('1.0', tk.END)
+        except ValueError:
+            messagebox.showerror("Error", "Año inválido")
+
+    # 2. RANKING DE CANCHAS
+    def crear_tab_ranking(self):
+        frame_filtros = tk.Frame(self.tab_ranking, bg='#f0f0f0', pady=10)
+        frame_filtros.pack(fill=tk.X)
         
-        fecha_desde = self.date_desde.get_date()
-        fecha_hasta = self.date_hasta.get_date()
+        tk.Label(frame_filtros, text="Mes:", bg='#f0f0f0', font=('Arial', 11)).pack(side=tk.LEFT, padx=5)
+        self.cmb_mes_ranking = ttk.Combobox(frame_filtros, values=list(range(1, 13)), width=3, state='readonly', font=('Arial', 11))
+        self.cmb_mes_ranking.set(self.mes_actual)
+        self.cmb_mes_ranking.pack(side=tk.LEFT, padx=5)
         
-        if fecha_desde > fecha_hasta:
-            messagebox.showerror("Error", "La fecha 'Desde' no puede ser posterior a 'Hasta'")
-            return
+        tk.Label(frame_filtros, text="Año:", bg='#f0f0f0', font=('Arial', 11)).pack(side=tk.LEFT, padx=5)
+        self.spin_anio_ranking = tk.Spinbox(frame_filtros, from_=2020, to=2030, width=5, font=('Arial', 11))
+        self.spin_anio_ranking.delete(0, tk.END)
+        self.spin_anio_ranking.insert(0, self.anio_actual)
+        self.spin_anio_ranking.pack(side=tk.LEFT, padx=5)
         
-        reporte = ReportesService.reporte_ingresos_periodo(fecha_desde, fecha_hasta)
+        tk.Button(frame_filtros, text="Actualizar", command=self.cargar_grafico_ranking, bg='#3498db', fg='white', relief=tk.FLAT, font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=15)
         
-        if reporte:
-            self.text_ingresos.insert(tk.END, "═" * 60 + "\n")
-            self.text_ingresos.insert(tk.END, "  REPORTE DE INGRESOS\n")
-            self.text_ingresos.insert(tk.END, "═" * 60 + "\n\n")
+        self.frame_graf_ranking = tk.Frame(self.tab_ranking, bg='white', relief=tk.RAISED, bd=1)
+        self.frame_graf_ranking.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        self.cargar_grafico_ranking()
+
+    def cargar_grafico_ranking(self):
+        for widget in self.frame_graf_ranking.winfo_children(): widget.destroy()
+        
+        try:
+            anio = int(self.spin_anio_ranking.get())
+            mes = int(self.cmb_mes_ranking.get())
             
-            self.text_ingresos.insert(tk.END, f"📅 Período: {formatear_fecha(fecha_desde)} - {formatear_fecha(fecha_hasta)}\n\n")
+            datos = ReportesService.reporte_ranking_canchas_mensual(anio, mes)
             
-            self.text_ingresos.insert(tk.END, "─" * 60 + "\n")
-            self.text_ingresos.insert(tk.END, "RESUMEN\n")
-            self.text_ingresos.insert(tk.END, "─" * 60 + "\n\n")
+            if not datos:
+                tk.Label(self.frame_graf_ranking, text="Sin reservas para este período", bg='white', font=('Arial', 12)).pack(expand=True)
+                return
+                
+            nombres = [d['nombre'] for d in datos]
+            reservas = [d['reservas'] for d in datos]
             
-            self.text_ingresos.insert(tk.END, f"Total de reservas: {reporte['total_reservas']}\n")
-            self.text_ingresos.insert(tk.END, f"Ingresos totales: {formatear_monto(reporte['ingresos_totales'])}\n")
-            self.text_ingresos.insert(tk.END, f"Pagos recibidos: {formatear_monto(reporte['pagos_recibidos'])}\n")
-            self.text_ingresos.insert(tk.END, f"Saldo pendiente: {formatear_monto(reporte['saldo_pendiente'])}\n\n")
+            fig, ax = plt.subplots(figsize=(8, 5))
             
-            self.text_ingresos.insert(tk.END, f"Promedio por reserva: {formatear_monto(reporte['promedio_por_reserva'])}\n")
+            # Dibujar barras
+            ax.bar(nombres, reservas, color='#9b59b6', width=0.6)
+            
+            ax.set_ylabel('Cantidad de Reservas', fontsize=11)
+            ax.set_title(f"Top Canchas Más Utilizadas - {mes}/{anio}", fontsize=14, fontweight='bold', pad=20)
+            
+            # NOTA: Se eliminó el bucle que añadía etiquetas de texto (números) sobre las barras.
+            
+            canvas = FigureCanvasTkAgg(fig, master=self.frame_graf_ranking)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+        except ValueError:
+            messagebox.showerror("Error", "Año inválido")
+
+    # 3. INGRESOS
+    def crear_tab_ingresos(self):
+        frame_filtros = tk.Frame(self.tab_ingresos, bg='#f0f0f0', pady=10)
+        frame_filtros.pack(fill=tk.X)
+        
+        tk.Label(frame_filtros, text="Año:", bg='#f0f0f0', font=('Arial', 11)).pack(side=tk.LEFT, padx=5)
+        self.spin_anio_ingresos = tk.Spinbox(frame_filtros, from_=2020, to=2030, width=6, font=('Arial', 11))
+        self.spin_anio_ingresos.delete(0, tk.END)
+        self.spin_anio_ingresos.insert(0, self.anio_actual)
+        self.spin_anio_ingresos.pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(frame_filtros, text="Calcular", command=self.cargar_ingresos, bg='#27ae60', fg='white', relief=tk.FLAT, font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=15)
+        
+        self.paned = tk.PanedWindow(self.tab_ingresos, orient=tk.VERTICAL, bg='#f0f0f0')
+        self.paned.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        self.frame_graf_ingresos = tk.Frame(self.paned, bg='white', relief=tk.RAISED, bd=1)
+        self.paned.add(self.frame_graf_ingresos, height=450)
+        
+        self.frame_tabla_ingresos = tk.Frame(self.paned, bg='#f0f0f0')
+        self.paned.add(self.frame_tabla_ingresos)
+        
+        scrollbar = ttk.Scrollbar(self.frame_tabla_ingresos)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.tree_ingresos = ttk.Treeview(self.frame_tabla_ingresos, columns=('Mes', 'Ingreso'), show='headings', yscrollcommand=scrollbar.set)
+        self.tree_ingresos.heading('Mes', text='Mes')
+        self.tree_ingresos.heading('Ingreso', text='Total Ingresos')
+        self.tree_ingresos.column('Mes', anchor='center', width=150)
+        self.tree_ingresos.column('Ingreso', anchor='e', width=150)
+        
+        scrollbar.config(command=self.tree_ingresos.yview)
+        self.tree_ingresos.pack(fill=tk.BOTH, expand=True)
+        
+        self.cargar_ingresos()
+
+    def cargar_ingresos(self):
+        for widget in self.frame_graf_ingresos.winfo_children(): widget.destroy()
+        for item in self.tree_ingresos.get_children(): self.tree_ingresos.delete(item)
+        
+        try:
+            anio = int(self.spin_anio_ingresos.get())
+            datos = ReportesService.reporte_ingresos_anual(anio)
+            
+            meses_nom = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+            montos = []
+            total_anual = 0
+            
+            for mes_num in range(1, 13):
+                ingreso = datos.get(mes_num, 0)
+                montos.append(ingreso)
+                total_anual += ingreso
+                self.tree_ingresos.insert('', tk.END, values=(meses_nom[mes_num-1], formatear_monto(ingreso)))
+            
+            self.tree_ingresos.insert('', tk.END, values=("TOTAL ANUAL", formatear_monto(total_anual)), tags=('total',))
+            self.tree_ingresos.tag_configure('total', font=('Arial', 10, 'bold'), background='#d4edda')
+            
+            if total_anual == 0:
+                tk.Label(self.frame_graf_ingresos, text="Sin ingresos confirmados este año", bg='white', font=('Arial', 12)).pack(expand=True)
+            else:
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.bar(meses_nom, montos, color='#27ae60')
+                ax.set_ylabel('Ingresos ($)', fontsize=11)
+                ax.set_title(f'Evolución de Ingresos - {anio}', fontsize=14, fontweight='bold', pad=15)
+                canvas = FigureCanvasTkAgg(fig, master=self.frame_graf_ingresos)
+                canvas.draw()
+                canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+                
+        except ValueError:
+            messagebox.showerror("Error", "Año inválido")

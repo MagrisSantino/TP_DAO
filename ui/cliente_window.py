@@ -1,5 +1,5 @@
 """
-Ventana de Gestión de Clientes
+Ventana de Gestión de Clientes - Estilo Moderno
 Actualizada: Mantiene el foco en la lista al realizar acciones.
 """
 
@@ -12,11 +12,17 @@ from dao.cliente_dao import ClienteDAO
 class ClienteWindow:
     """Ventana de gestión de clientes"""
     
+    # Colores del tema oscuro
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    SUBTITLE_COLOR = '#a0a0b0'
+    
     def __init__(self, parent):
         self.window = tk.Toplevel(parent)
         self.window.title("Gestión de Clientes")
         self.window.geometry("1000x600")
-        self.window.configure(bg='#f0f0f0')
+        self.window.configure(bg=self.BG_COLOR)
         
         # Variables
         self.clientes = []
@@ -36,36 +42,52 @@ class ClienteWindow:
     
     def crear_widgets(self):
         # Frame superior
-        frame_top = tk.Frame(self.window, bg='#f0f0f0')
-        frame_top.pack(fill=tk.X, padx=20, pady=10)
+        frame_top = tk.Frame(self.window, bg=self.BG_COLOR)
+        frame_top.pack(fill=tk.X, padx=20, pady=15)
         
-        tk.Label(frame_top, text="👥 Gestión de Clientes", font=('Arial', 16, 'bold'), bg='#f0f0f0', fg='#2c3e50').pack(side=tk.LEFT)
+        tk.Label(frame_top, text="👥 Gestión de Clientes", font=('Segoe UI', 18, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(side=tk.LEFT)
         
         # Búsqueda
-        frame_busq = tk.Frame(frame_top, bg='#f0f0f0')
+        frame_busq = tk.Frame(frame_top, bg=self.BG_COLOR)
         frame_busq.pack(side=tk.LEFT, padx=40)
         
-        tk.Label(frame_busq, text="Buscar:", bg='#f0f0f0').pack(side=tk.LEFT)
-        self.entry_buscar = tk.Entry(frame_busq, width=30)
-        self.entry_buscar.pack(side=tk.LEFT, padx=5)
+        tk.Label(frame_busq, text="Buscar:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(side=tk.LEFT)
+        self.entry_buscar = tk.Entry(frame_busq, width=30, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+        self.entry_buscar.pack(side=tk.LEFT, padx=5, ipady=5)
         self.entry_buscar.bind('<Return>', lambda e: self.buscar_cliente())
         
-        tk.Button(frame_busq, text="🔍", command=self.buscar_cliente, relief=tk.FLAT, bg='#bdc3c7').pack(side=tk.LEFT)
-        tk.Button(frame_busq, text="✖", command=self.cargar_clientes, relief=tk.FLAT, bg='#bdc3c7').pack(side=tk.LEFT, padx=2)
+        tk.Button(frame_busq, text="🔍", command=self.buscar_cliente, relief=tk.FLAT, bg='#3a3a4e', fg=self.TEXT_COLOR, font=('Segoe UI', 10), cursor='hand2', padx=8).pack(side=tk.LEFT)
+        tk.Button(frame_busq, text="✖", command=self.cargar_clientes, relief=tk.FLAT, bg='#3a3a4e', fg=self.TEXT_COLOR, font=('Segoe UI', 10), cursor='hand2', padx=8).pack(side=tk.LEFT, padx=2)
         
         # Botones
-        btn_nuevo = tk.Button(frame_top, text="➕ Nuevo Cliente", command=self.nuevo_cliente, bg='#3498db', fg='white', font=('Arial', 10, 'bold'), relief=tk.FLAT, padx=15, pady=5)
+        btn_nuevo = tk.Button(frame_top, text="➕ Nuevo Cliente", command=self.nuevo_cliente, bg='#4a6fa5', fg='white', font=('Segoe UI', 10, 'bold'), relief=tk.FLAT, cursor='hand2', padx=20, pady=8)
         btn_nuevo.pack(side=tk.RIGHT, padx=5)
         
-        btn_editar = tk.Button(frame_top, text="✏ Editar", command=self.editar_cliente, bg='#f39c12', fg='white', font=('Arial', 10, 'bold'), relief=tk.FLAT, padx=15, pady=5)
+        btn_editar = tk.Button(frame_top, text="✏ Editar", command=self.editar_cliente, bg='#8f6b4a', fg='white', font=('Segoe UI', 10, 'bold'), relief=tk.FLAT, cursor='hand2', padx=20, pady=8)
         btn_editar.pack(side=tk.RIGHT, padx=5)
         
-        btn_eliminar = tk.Button(frame_top, text="🗑 Eliminar", command=self.eliminar_cliente, bg='#e74c3c', fg='white', font=('Arial', 10, 'bold'), relief=tk.FLAT, padx=15, pady=5)
+        btn_eliminar = tk.Button(frame_top, text="🗑 Eliminar", command=self.eliminar_cliente, bg='#a04a4a', fg='white', font=('Segoe UI', 10, 'bold'), relief=tk.FLAT, cursor='hand2', padx=20, pady=8)
         btn_eliminar.pack(side=tk.RIGHT, padx=5)
         
         # Tabla
-        frame_tabla = tk.Frame(self.window, bg='#f0f0f0')
+        frame_tabla = tk.Frame(self.window, bg=self.CARD_BG)
         frame_tabla.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # Estilo para Treeview
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure("Treeview",
+                       background=self.CARD_BG,
+                       foreground=self.TEXT_COLOR,
+                       fieldbackground=self.CARD_BG,
+                       borderwidth=0,
+                       font=('Segoe UI', 10))
+        style.configure("Treeview.Heading",
+                       background='#3a3a4e',
+                       foreground=self.TEXT_COLOR,
+                       font=('Segoe UI', 10, 'bold'),
+                       borderwidth=0)
+        style.map('Treeview', background=[('selected', '#4a5f8f')])
         
         scrollbar = ttk.Scrollbar(frame_tabla)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -92,8 +114,8 @@ class ClienteWindow:
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.bind('<<TreeviewSelect>>', self.on_select)
         
-        self.tree.tag_configure('activo', background='white')
-        self.tree.tag_configure('inactivo', background='#f2f2f2', foreground='gray')
+        self.tree.tag_configure('activo', background=self.CARD_BG)
+        self.tree.tag_configure('inactivo', background='#3a3a4e', foreground='#808080')
 
     def cargar_clientes(self):
         try:
@@ -155,13 +177,18 @@ class ClienteWindow:
 
 class NuevoClienteDialog:
     """Diálogo para crear nuevo cliente"""
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    
     def __init__(self, parent, callback):
         self.parent = parent
         self.callback = callback
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Nuevo Cliente")
-        self.dialog.geometry("400x450")
-        self.dialog.configure(bg='#f0f0f0')
+        # MODIFICADO: Aumentado el tamaño a 500x600
+        self.dialog.geometry("500x600")
+        self.dialog.configure(bg=self.BG_COLOR)
         self.dialog.grab_set()
         
         self.dialog.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
@@ -178,25 +205,25 @@ class NuevoClienteDialog:
         self.dialog.geometry(f'{ancho}x{alto}+{x}+{y}')
 
     def crear_formulario(self):
-        main_frame = tk.Frame(self.dialog, bg='#f0f0f0', padx=20, pady=20)
+        main_frame = tk.Frame(self.dialog, bg=self.BG_COLOR, padx=20, pady=20)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(main_frame, text="Nuevo Cliente", font=('Arial', 14, 'bold'), bg='#f0f0f0').pack(pady=(0, 20))
+        tk.Label(main_frame, text="Nuevo Cliente", font=('Segoe UI', 16, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(pady=(0, 20))
         
         self.entries = {}
         campos = [("Nombre", "nombre"), ("Apellido", "apellido"), ("DNI", "dni"), ("Teléfono", "telefono"), ("Email", "email")]
         
         for label_text, key in campos:
-            tk.Label(main_frame, text=label_text + ":", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-            entry = tk.Entry(main_frame)
-            entry.pack(fill=tk.X, pady=(0, 10))
+            tk.Label(main_frame, text=label_text + ":", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+            entry = tk.Entry(main_frame, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+            entry.pack(fill=tk.X, pady=(0, 12), ipady=5)
             self.entries[key] = entry
             
-        btn_frame = tk.Frame(main_frame, bg='#f0f0f0', pady=10)
+        btn_frame = tk.Frame(main_frame, bg=self.BG_COLOR, pady=10)
         btn_frame.pack(fill=tk.X)
         
-        tk.Button(btn_frame, text="Guardar", command=self.guardar_cliente, bg='#2ecc71', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
-        tk.Button(btn_frame, text="Cerrar", command=self.cerrar_ventana, bg='#95a5a6', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Guardar", command=self.guardar_cliente, bg='#45796e', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Cerrar", command=self.cerrar_ventana, bg='#5a6b7a', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
 
     def limpiar_formulario(self):
         """Limpia los campos para una nueva carga"""
@@ -219,21 +246,26 @@ class NuevoClienteDialog:
         if exito:
             messagebox.showinfo("Éxito", f"{mensaje}\n\nPuede cargar otro cliente o cerrar la ventana.")
             self.callback()
-            self.limpiar_formulario() # Mantiene ventana abierta
+            self.limpiar_formulario()
         else:
             messagebox.showerror("Error", mensaje)
 
 
 class EditarClienteDialog:
     """Diálogo para editar cliente"""
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    
     def __init__(self, parent, cliente, callback):
         self.parent = parent
         self.cliente = cliente
         self.callback = callback
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Editar Cliente")
-        self.dialog.geometry("400x450")
-        self.dialog.configure(bg='#f0f0f0')
+        # MODIFICADO: Aumentado el tamaño a 500x600
+        self.dialog.geometry("500x600")
+        self.dialog.configure(bg=self.BG_COLOR)
         self.dialog.grab_set()
         
         self.dialog.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
@@ -251,30 +283,30 @@ class EditarClienteDialog:
         self.dialog.geometry(f'{ancho}x{alto}+{x}+{y}')
 
     def crear_formulario(self):
-        main_frame = tk.Frame(self.dialog, bg='#f0f0f0', padx=20, pady=20)
+        main_frame = tk.Frame(self.dialog, bg=self.BG_COLOR, padx=20, pady=20)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(main_frame, text="Editar Cliente", font=('Arial', 14, 'bold'), bg='#f0f0f0').pack(pady=(0, 20))
+        tk.Label(main_frame, text="Editar Cliente", font=('Segoe UI', 16, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(pady=(0, 20))
         
         self.entries = {}
         campos = [("Nombre", "nombre"), ("Apellido", "apellido"), ("DNI", "dni"), ("Teléfono", "telefono"), ("Email", "email")]
         
         for label_text, key in campos:
-            tk.Label(main_frame, text=label_text + ":", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-            entry = tk.Entry(main_frame)
-            entry.pack(fill=tk.X, pady=(0, 10))
+            tk.Label(main_frame, text=label_text + ":", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+            entry = tk.Entry(main_frame, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+            entry.pack(fill=tk.X, pady=(0, 10), ipady=5)
             self.entries[key] = entry
         
         # Estado
-        tk.Label(main_frame, text="Estado:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.cmb_estado = ttk.Combobox(main_frame, values=['activo', 'inactivo'], state='readonly')
-        self.cmb_estado.pack(fill=tk.X, pady=(0, 15))
+        tk.Label(main_frame, text="Estado:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.cmb_estado = ttk.Combobox(main_frame, values=['activo', 'inactivo'], state='readonly', font=('Segoe UI', 10))
+        self.cmb_estado.pack(fill=tk.X, pady=(0, 15), ipady=3)
             
-        btn_frame = tk.Frame(main_frame, bg='#f0f0f0', pady=10)
+        btn_frame = tk.Frame(main_frame, bg=self.BG_COLOR, pady=10)
         btn_frame.pack(fill=tk.X)
         
-        tk.Button(btn_frame, text="Actualizar", command=self.actualizar_cliente, bg='#f39c12', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
-        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#95a5a6', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Actualizar", command=self.actualizar_cliente, bg='#8f6b4a', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#5a6b7a', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
 
     def cargar_datos(self):
         self.entries['nombre'].insert(0, self.cliente.nombre)

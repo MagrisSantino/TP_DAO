@@ -1,6 +1,6 @@
 """
-Ventana de Gestión de Torneos
-CORREGIDO: Calendario arreglado removiendo modalidad.
+Ventana de Gestión de Torneos - Estilo Moderno
+CORREGIDO: Mantiene el foco en el diálogo de alta tras errores y en la lista tras crear.
 """
 
 import tkinter as tk
@@ -14,11 +14,17 @@ from utils.helpers import formatear_monto, parsear_hora, formatear_hora
 from ui.pago_window import NuevoPagoDialog
 
 class TorneoWindow:
+    # Colores del tema oscuro
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    SUBTITLE_COLOR = '#a0a0b0'
+    
     def __init__(self, parent):
         self.window = tk.Toplevel(parent)
         self.window.title("Gestión de Torneos")
         self.window.geometry("1100x600")
-        self.window.configure(bg='#f0f0f0')
+        self.window.configure(bg=self.BG_COLOR)
         self.torneo_seleccionado = None
         self.crear_widgets()
         self.cargar_torneos()
@@ -26,17 +32,34 @@ class TorneoWindow:
         self.window.focus_force()
     
     def crear_widgets(self):
-        frame_top = tk.Frame(self.window, bg='#f0f0f0')
-        frame_top.pack(fill=tk.X, padx=20, pady=10)
-        tk.Label(frame_top, text="🏆 Torneos (Reservas Masivas)", font=('Arial', 16, 'bold'), bg='#f0f0f0', fg='#2c3e50').pack(side=tk.LEFT)
+        frame_top = tk.Frame(self.window, bg=self.BG_COLOR)
+        frame_top.pack(fill=tk.X, padx=20, pady=15)
+        tk.Label(frame_top, text="🏆 Torneos (Reservas Masivas)", font=('Segoe UI', 18, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(side=tk.LEFT)
         
-        btn_nuevo = tk.Button(frame_top, text="➕ Nuevo Torneo", command=self.nuevo_torneo, bg='#3498db', fg='white', font=('Arial', 10, 'bold'), relief=tk.FLAT, padx=15, pady=5)
+        btn_nuevo = tk.Button(frame_top, text="➕ Nuevo Torneo", command=self.nuevo_torneo, bg='#4a6fa5', fg='white', font=('Segoe UI', 10, 'bold'), relief=tk.FLAT, padx=20, pady=8, cursor='hand2')
         btn_nuevo.pack(side=tk.RIGHT, padx=5)
-        btn_eliminar = tk.Button(frame_top, text="🗑 Cancelar Torneo", command=self.eliminar_torneo, bg='#e74c3c', fg='white', font=('Arial', 10, 'bold'), relief=tk.FLAT, padx=15, pady=5)
+        btn_eliminar = tk.Button(frame_top, text="🗑 Cancelar Torneo", command=self.eliminar_torneo, bg='#a04a4a', fg='white', font=('Segoe UI', 10, 'bold'), relief=tk.FLAT, padx=20, pady=8, cursor='hand2')
         btn_eliminar.pack(side=tk.RIGHT, padx=5)
         
-        frame_tabla = tk.Frame(self.window, bg='#f0f0f0')
+        frame_tabla = tk.Frame(self.window, bg=self.CARD_BG)
         frame_tabla.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # Estilo para Treeview
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure("Treeview",
+                       background=self.CARD_BG,
+                       foreground=self.TEXT_COLOR,
+                       fieldbackground=self.CARD_BG,
+                       borderwidth=0,
+                       font=('Segoe UI', 10))
+        style.configure("Treeview.Heading",
+                       background='#3a3a4e',
+                       foreground=self.TEXT_COLOR,
+                       font=('Segoe UI', 10, 'bold'),
+                       borderwidth=0)
+        style.map('Treeview', background=[('selected', '#4a5f8f')])
+        
         self.tree = ttk.Treeview(frame_tabla, columns=('ID', 'Nombre', 'Org', 'Deporte', 'Fecha', 'Horario', 'Canchas', 'Precio'), show='headings')
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.heading('ID', text='ID')
@@ -51,10 +74,13 @@ class TorneoWindow:
         self.tree.bind('<<TreeviewSelect>>', self.on_select)
 
     def cargar_torneos(self):
+        # Esta función se llama al iniciar y como callback al crear
+        # Garantiza que la lista quede al frente al actualizarse
         try:
             self.window.lift()
             self.window.focus_force()
         except: pass
+        
         for item in self.tree.get_children(): self.tree.delete(item)
         torneos = TorneoService.obtener_todos()
         for t in torneos:
@@ -76,6 +102,7 @@ class TorneoWindow:
     def eliminar_torneo(self):
         if not self.torneo_seleccionado:
             messagebox.showwarning("Alerta", "Seleccione un torneo")
+            self.window.lift() # Mantener foco si hubo alerta
             return
         if messagebox.askyesno("Confirmar", "¿Cancelar torneo y liberar canchas?"):
             exito, msg = TorneoService.eliminar_torneo(self.torneo_seleccionado)
@@ -84,17 +111,21 @@ class TorneoWindow:
                 self.cargar_torneos()
             else:
                 messagebox.showerror("Error", msg)
+                self.window.lift()
 
 class NuevoTorneoDialog:
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    
     def __init__(self, parent, callback):
         self.parent = parent
         self.callback = callback
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Nuevo Torneo")
         self.dialog.geometry("500x650")
-        self.dialog.configure(bg='#f0f0f0')
+        self.dialog.configure(bg=self.BG_COLOR)
         
-        # Eliminada toda lógica de modalidad para arreglar calendario
         self.dialog.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
         
         self.crear_formulario()
@@ -105,49 +136,56 @@ class NuevoTorneoDialog:
         self.dialog.geometry(f'+{x}+{y}')
 
     def crear_formulario(self):
-        main = tk.Frame(self.dialog, bg='#f0f0f0', padx=20, pady=20)
+        main = tk.Frame(self.dialog, bg=self.BG_COLOR, padx=20, pady=20)
         main.pack(fill=tk.BOTH, expand=True)
-        tk.Label(main, text="Organizar Torneo", font=('Arial', 14, 'bold'), bg='#f0f0f0').pack(pady=(0, 15))
+        tk.Label(main, text="Organizar Torneo", font=('Segoe UI', 16, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(pady=(0, 15))
         
-        tk.Label(main, text="Organizador (Cliente):", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.cmb_cliente = ttk.Combobox(main, state='readonly')
-        self.cmb_cliente.pack(fill=tk.X, pady=5)
+        # 1. Fecha (Día único) - MOVIDO ARRIBA
+        tk.Label(main, text="Fecha (Día único):", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.date_fecha = DateEntry(main, width=20, background='#4a6fa5', foreground='white', borderwidth=2, font=('Segoe UI', 10))
+        self.date_fecha.pack(fill=tk.X, pady=(0, 10))
+
+        # 2. Organizador
+        tk.Label(main, text="Organizador (Cliente):", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.cmb_cliente = ttk.Combobox(main, state='readonly', font=('Segoe UI', 10))
+        self.cmb_cliente.pack(fill=tk.X, pady=(0, 10), ipady=3)
         clientes = ClienteService.obtener_clientes_activos()
         self.cmb_cliente['values'] = [f"{c.id_cliente} - {c.nombre} {c.apellido}" for c in clientes]
         
-        tk.Label(main, text="Nombre del Torneo:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.entry_nombre = tk.Entry(main)
-        self.entry_nombre.pack(fill=tk.X, pady=5)
+        # 3. Nombre del Torneo
+        tk.Label(main, text="Nombre del Torneo:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.entry_nombre = tk.Entry(main, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+        self.entry_nombre.pack(fill=tk.X, pady=(0, 10), ipady=5)
         
-        tk.Label(main, text="Deporte:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.cmb_deporte = ttk.Combobox(main, values=['Fútbol 5', 'Fútbol 7', 'Fútbol 11', 'Tenis', 'Padel', 'Basket'], state='readonly')
-        self.cmb_deporte.pack(fill=tk.X, pady=5)
+        # 4. Deporte
+        tk.Label(main, text="Deporte:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.cmb_deporte = ttk.Combobox(main, values=['Fútbol 5', 'Fútbol 7', 'Fútbol 11', 'Tenis', 'Padel', 'Basket'], state='readonly', font=('Segoe UI', 10))
+        self.cmb_deporte.pack(fill=tk.X, pady=(0, 10), ipady=3)
         
-        tk.Label(main, text="Fecha (Día único):", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.date_fecha = DateEntry(main, width=20, background='darkblue', foreground='white', borderwidth=2)
-        self.date_fecha.pack(fill=tk.X, pady=5)
-        
-        frame_hora = tk.Frame(main, bg='#f0f0f0')
-        frame_hora.pack(fill=tk.X, pady=5)
-        tk.Label(frame_hora, text="Hora Inicio:", bg='#f0f0f0').pack(side=tk.LEFT)
-        self.entry_h_ini = tk.Entry(frame_hora, width=8)
+        # 5. Hora Inicio y Fin
+        frame_hora = tk.Frame(main, bg=self.BG_COLOR)
+        frame_hora.pack(fill=tk.X, pady=(0, 10))
+        tk.Label(frame_hora, text="Hora Inicio:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(side=tk.LEFT)
+        self.entry_h_ini = tk.Entry(frame_hora, width=8, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT)
         self.entry_h_ini.pack(side=tk.LEFT, padx=5)
-        tk.Label(frame_hora, text="Hora Fin:", bg='#f0f0f0').pack(side=tk.LEFT)
-        self.entry_h_fin = tk.Entry(frame_hora, width=8)
+        tk.Label(frame_hora, text="Hora Fin:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(side=tk.LEFT)
+        self.entry_h_fin = tk.Entry(frame_hora, width=8, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT)
         self.entry_h_fin.pack(side=tk.LEFT, padx=5)
         
-        tk.Label(main, text="Cantidad Canchas:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.spin_canchas = tk.Spinbox(main, from_=1, to=20)
-        self.spin_canchas.pack(fill=tk.X, pady=5)
+        # 6. Cantidad Canchas
+        tk.Label(main, text="Cantidad Canchas:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.spin_canchas = tk.Spinbox(main, from_=1, to=20, bg=self.CARD_BG, fg=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+        self.spin_canchas.pack(fill=tk.X, pady=(0, 10), ipady=3)
         
-        tk.Label(main, text="Precio Total:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.entry_precio = tk.Entry(main)
-        self.entry_precio.pack(fill=tk.X, pady=5)
+        # 7. Precio Total
+        tk.Label(main, text="Precio Total:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.entry_precio = tk.Entry(main, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+        self.entry_precio.pack(fill=tk.X, pady=(0, 10), ipady=5)
         
-        btn_frame = tk.Frame(main, bg='#f0f0f0', pady=20)
+        btn_frame = tk.Frame(main, bg=self.BG_COLOR, pady=20)
         btn_frame.pack(fill=tk.X)
-        tk.Button(btn_frame, text="Crear y Pagar", command=self.crear, bg='#2ecc71', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
-        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#95a5a6', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Crear y Pagar", command=self.crear, bg='#45796e', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#5a6b7a', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
 
     def limpiar(self):
         self.entry_nombre.delete(0, tk.END)
@@ -169,7 +207,11 @@ class NuevoTorneoDialog:
             cliente_sel = self.cmb_cliente.get()
             if not cliente_sel:
                 messagebox.showwarning("Alerta", "Seleccione un organizador")
+                # Forzar foco en el diálogo tras la alerta
+                self.dialog.lift()
+                self.dialog.focus_force()
                 return
+            
             id_cliente = int(cliente_sel.split(' - ')[0])
             nombre = self.entry_nombre.get()
             deporte = self.cmb_deporte.get()
@@ -178,18 +220,33 @@ class NuevoTorneoDialog:
             h_fin = parsear_hora(self.entry_h_fin.get())
             cant = int(self.spin_canchas.get())
             precio = float(self.entry_precio.get())
+            
             if not h_ini or not h_fin:
                 messagebox.showerror("Error", "Horas inválidas")
+                self.dialog.lift()
+                self.dialog.focus_force()
                 return
+                
             exito, msg, torneo = TorneoService.crear_torneo(id_cliente, nombre, deporte, fecha, h_ini, h_fin, cant, precio)
+            
             if exito:
                 messagebox.showinfo("Éxito", msg)
+                # Actualiza la lista de fondo (callback) para que al cerrar pago se vea
                 self.callback() 
                 self.dialog.destroy() 
+                # Abre el pago
                 NuevoPagoDialog(self.parent, id_reserva=None, callback=self.callback, id_torneo=torneo.id_torneo)
             else:
                 messagebox.showerror("Error", msg)
+                # IMPORTANTE: Si hay error, mantenemos el diálogo de alta arriba
+                self.dialog.lift()
+                self.dialog.focus_force()
+                
         except ValueError:
             messagebox.showerror("Error", "Datos numéricos inválidos")
+            self.dialog.lift()
+            self.dialog.focus_force()
         except Exception as e:
             messagebox.showerror("Error", str(e))
+            self.dialog.lift()
+            self.dialog.focus_force()

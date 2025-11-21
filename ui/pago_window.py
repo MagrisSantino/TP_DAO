@@ -1,5 +1,5 @@
 """
-Ventana de Gestión de Pagos
+Ventana de Gestión de Pagos - Estilo Moderno
 CORREGIDO: Agregado método 'pago_online'.
 """
 
@@ -18,11 +18,17 @@ from utils.helpers import formatear_monto, formatear_fecha
 class PagoWindow:
     """Ventana de gestión de pagos (Historial)"""
     
+    # Colores del tema oscuro
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    SUBTITLE_COLOR = '#a0a0b0'
+    
     def __init__(self, parent):
         self.window = tk.Toplevel(parent)
         self.window.title("Gestión de Pagos")
         self.window.geometry("1000x600")
-        self.window.configure(bg='#f0f0f0')
+        self.window.configure(bg=self.BG_COLOR)
         
         self.pago_seleccionado = None
         
@@ -43,35 +49,51 @@ class PagoWindow:
     
     def crear_widgets(self):
         # --- HEADER ---
-        frame_top = tk.Frame(self.window, bg='#f0f0f0')
-        frame_top.pack(fill=tk.X, padx=20, pady=10)
+        frame_top = tk.Frame(self.window, bg=self.BG_COLOR)
+        frame_top.pack(fill=tk.X, padx=20, pady=15)
         
-        tk.Label(frame_top, text="💰 Historial de Pagos", font=('Arial', 16, 'bold'), bg='#f0f0f0', fg='#2c3e50').pack(side=tk.LEFT)
+        tk.Label(frame_top, text="💰 Historial de Pagos", font=('Segoe UI', 18, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(side=tk.LEFT)
         
         # --- FILTROS ---
-        frame_filtros = tk.LabelFrame(self.window, text="Filtros de Búsqueda", bg='#f0f0f0', padx=10, pady=10)
+        frame_filtros = tk.LabelFrame(self.window, text="Filtros de Búsqueda", bg=self.BG_COLOR, fg=self.TEXT_COLOR, padx=10, pady=10, font=('Segoe UI', 10, 'bold'))
         frame_filtros.pack(fill=tk.X, padx=20, pady=(0, 10))
         
         self.var_usar_fecha = tk.BooleanVar(value=False)
-        chk_fecha = tk.Checkbutton(frame_filtros, text="Filtrar por fecha", variable=self.var_usar_fecha, bg='#f0f0f0', command=self.toggle_fechas)
+        chk_fecha = tk.Checkbutton(frame_filtros, text="Filtrar por fecha", variable=self.var_usar_fecha, bg=self.BG_COLOR, fg=self.TEXT_COLOR, selectcolor=self.CARD_BG, activebackground=self.BG_COLOR, activeforeground=self.TEXT_COLOR, font=('Segoe UI', 10), command=self.toggle_fechas)
         chk_fecha.pack(side=tk.LEFT, padx=(0, 10))
         
-        tk.Label(frame_filtros, text="Desde:", bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 5))
-        self.date_desde = DateEntry(frame_filtros, width=12, background='darkblue', foreground='white', borderwidth=2)
+        tk.Label(frame_filtros, text="Desde:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(side=tk.LEFT, padx=(0, 5))
+        self.date_desde = DateEntry(frame_filtros, width=12, background='#4a6fa5', foreground='white', borderwidth=2, font=('Segoe UI', 9))
         self.date_desde.set_date(date.today())
         self.date_desde.pack(side=tk.LEFT, padx=(0, 10))
         
-        tk.Label(frame_filtros, text="Hasta:", bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 5))
-        self.date_hasta = DateEntry(frame_filtros, width=12, background='darkblue', foreground='white', borderwidth=2)
+        tk.Label(frame_filtros, text="Hasta:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(side=tk.LEFT, padx=(0, 5))
+        self.date_hasta = DateEntry(frame_filtros, width=12, background='#4a6fa5', foreground='white', borderwidth=2, font=('Segoe UI', 9))
         self.date_hasta.set_date(date.today())
         self.date_hasta.pack(side=tk.LEFT, padx=(0, 20))
         
-        tk.Button(frame_filtros, text="🔍 Aplicar Filtros", command=self.cargar_pagos, bg='#95a5a6', fg='white', relief=tk.FLAT, padx=10).pack(side=tk.LEFT, padx=5)
-        tk.Button(frame_filtros, text="🔄 Limpiar", command=self.limpiar_filtros, bg='#bdc3c7', relief=tk.FLAT, padx=10).pack(side=tk.LEFT, padx=5)
+        tk.Button(frame_filtros, text="🔍 Aplicar Filtros", command=self.cargar_pagos, bg='#5a6b7a', fg='white', relief=tk.FLAT, padx=15, pady=5, font=('Segoe UI', 10, 'bold'), cursor='hand2').pack(side=tk.LEFT, padx=5)
+        tk.Button(frame_filtros, text="🔄 Limpiar", command=self.limpiar_filtros, bg='#3a3a4e', relief=tk.FLAT, padx=15, pady=5, fg=self.TEXT_COLOR, font=('Segoe UI', 10, 'bold'), cursor='hand2').pack(side=tk.LEFT, padx=5)
 
         # --- TABLA ---
-        frame_tabla = tk.Frame(self.window, bg='#f0f0f0')
+        frame_tabla = tk.Frame(self.window, bg=self.CARD_BG)
         frame_tabla.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # Estilo para Treeview
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure("Treeview",
+                       background=self.CARD_BG,
+                       foreground=self.TEXT_COLOR,
+                       fieldbackground=self.CARD_BG,
+                       borderwidth=0,
+                       font=('Segoe UI', 10))
+        style.configure("Treeview.Heading",
+                       background='#3a3a4e',
+                       foreground=self.TEXT_COLOR,
+                       font=('Segoe UI', 10, 'bold'),
+                       borderwidth=0)
+        style.map('Treeview', background=[('selected', '#4a5f8f')])
         
         scrollbar = ttk.Scrollbar(frame_tabla)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -131,7 +153,6 @@ class PagoWindow:
                 if not (f_desde <= p.fecha_pago <= f_hasta):
                     continue
             
-            # Determinar si es pago de Reserva o Torneo
             referencia = "N/A"
             cliente_nombre = "N/A"
             
@@ -157,6 +178,10 @@ class NuevoPagoDialog:
     """
     Diálogo para registrar pago (Reserva o Torneo).
     """
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    
     def __init__(self, parent, id_reserva=None, callback=None, id_torneo=None):
         self.parent = parent
         self.id_reserva = id_reserva
@@ -167,7 +192,7 @@ class NuevoPagoDialog:
         titulo = f"Pago Reserva #{id_reserva}" if id_reserva else f"Pago Torneo #{id_torneo}"
         self.dialog.title(titulo)
         self.dialog.geometry("500x500")
-        self.dialog.configure(bg='#f0f0f0')
+        self.dialog.configure(bg=self.BG_COLOR)
         self.dialog.grab_set()
         
         self.dialog.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
@@ -186,13 +211,13 @@ class NuevoPagoDialog:
         self.dialog.geometry(f'{ancho}x{alto}+{x}+{y}')
 
     def crear_formulario(self):
-        main = tk.Frame(self.dialog, bg='#f0f0f0', padx=20, pady=20)
+        main = tk.Frame(self.dialog, bg=self.BG_COLOR, padx=20, pady=20)
         main.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(main, text="Confirmar y Pagar", font=('Arial', 14, 'bold'), bg='#f0f0f0').pack(pady=(0, 20))
+        tk.Label(main, text="Confirmar y Pagar", font=('Segoe UI', 16, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(pady=(0, 20))
         
         # Información de la deuda
-        info_frame = tk.LabelFrame(main, text="Detalle", bg='#f0f0f0', padx=10, pady=10)
+        info_frame = tk.LabelFrame(main, text="Detalle", bg=self.BG_COLOR, fg=self.TEXT_COLOR, padx=10, pady=10, font=('Segoe UI', 10, 'bold'))
         info_frame.pack(fill=tk.X, pady=(0, 15))
         
         pendiente = 0.0
@@ -200,42 +225,41 @@ class NuevoPagoDialog:
         if self.reserva:
             cliente = ClienteService.obtener_cliente(self.reserva.id_cliente)
             nom = f"{cliente.nombre} {cliente.apellido}" if cliente else "-"
-            tk.Label(info_frame, text=f"Cliente: {nom}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+            tk.Label(info_frame, text=f"Cliente: {nom}", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
             
             pagado = PagoService.obtener_monto_pagado(self.reserva.id_reserva)
             pendiente = self.reserva.monto_total - pagado
-            tk.Label(info_frame, text=f"Total Reserva: {formatear_monto(self.reserva.monto_total)}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+            tk.Label(info_frame, text=f"Total Reserva: {formatear_monto(self.reserva.monto_total)}", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
             
         elif self.torneo:
             cliente = ClienteService.obtener_cliente(self.torneo.id_cliente)
             nom = f"{cliente.nombre} {cliente.apellido}" if cliente else "-"
-            tk.Label(info_frame, text=f"Organizador: {nom}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-            tk.Label(info_frame, text=f"Torneo: {self.torneo.nombre}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+            tk.Label(info_frame, text=f"Organizador: {nom}", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+            tk.Label(info_frame, text=f"Torneo: {self.torneo.nombre}", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
             
             pagado = PagoService.obtener_monto_pagado_torneo(self.torneo.id_torneo)
             pendiente = self.torneo.precio_total - pagado
-            tk.Label(info_frame, text=f"Total Torneo: {formatear_monto(self.torneo.precio_total)}", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
+            tk.Label(info_frame, text=f"Total Torneo: {formatear_monto(self.torneo.precio_total)}", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
 
-        tk.Label(info_frame, text=f"Pendiente: {formatear_monto(pendiente)}", bg='#f0f0f0', anchor='w', fg='red', font=('Arial', 10, 'bold')).pack(fill=tk.X)
+        tk.Label(info_frame, text=f"Pendiente: {formatear_monto(pendiente)}", bg=self.BG_COLOR, anchor='w', fg='#ff6b6b', font=('Segoe UI', 11, 'bold')).pack(fill=tk.X)
         self.monto_sugerido = pendiente
 
         # Campos
-        tk.Label(main, text="Monto a Pagar:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.entry_monto = tk.Entry(main, font=('Arial', 11))
-        self.entry_monto.pack(fill=tk.X, pady=5)
+        tk.Label(main, text="Monto a Pagar:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.entry_monto = tk.Entry(main, font=('Segoe UI', 11), bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, relief=tk.FLAT, borderwidth=2)
+        self.entry_monto.pack(fill=tk.X, pady=(0, 10), ipady=5)
         self.entry_monto.insert(0, str(self.monto_sugerido))
         
-        tk.Label(main, text="Método de Pago:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        # CORRECCIÓN AQUÍ: Agregado 'pago_online'
-        self.cmb_metodo = ttk.Combobox(main, values=['efectivo', 'tarjeta', 'transferencia', 'pago_online'], state='readonly')
-        self.cmb_metodo.pack(fill=tk.X, pady=5)
+        tk.Label(main, text="Método de Pago:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.cmb_metodo = ttk.Combobox(main, values=['efectivo', 'tarjeta', 'transferencia', 'pago_online'], state='readonly', font=('Segoe UI', 10))
+        self.cmb_metodo.pack(fill=tk.X, pady=(0, 10), ipady=3)
         self.cmb_metodo.set('efectivo')
         
-        btn_frame = tk.Frame(main, bg='#f0f0f0', pady=20)
+        btn_frame = tk.Frame(main, bg=self.BG_COLOR, pady=20)
         btn_frame.pack(fill=tk.X)
         
-        tk.Button(btn_frame, text="✅ Pagar", command=self.registrar, bg='#2ecc71', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
-        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#95a5a6', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="✅ Pagar", command=self.registrar, bg='#45796e', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#5a6b7a', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
 
     def cerrar_ventana(self):
         self.dialog.destroy()

@@ -1,14 +1,15 @@
 """
 Servicio de Reserva
 Lógica de negocio para gestión de reservas.
+ACTUALIZADO: Regla de 24hs (Pago inmediato para reservas próximas y cancelación automática).
 """
 from datetime import datetime, timedelta, date, time
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from models.reserva import Reserva
 from dao.reserva_dao import ReservaDAO
 from dao.cancha_dao import CanchaDAO
 from dao.cliente_dao import ClienteDAO
-from config import RECARGO_ILUMINACION # Asegúrate de que esto exista en config.py, si no, usa valor fijo
+from config import RECARGO_ILUMINACION
 
 class ReservaService:
     
@@ -47,24 +48,19 @@ class ReservaService:
         duracion_horas = (fin_dt - inicio_dt).total_seconds() / 3600
 
         # 6. Calcular Precio (Lógica Actualizada Día/Noche)
-        # Asumimos horario noche a partir de las 19:00
         hora_corte_noche = 19 
         
-        # Determinar precio base según horario de inicio
         if hora_inicio.hour >= hora_corte_noche:
             precio_base = cancha.precio_hora_noche
         else:
             precio_base = cancha.precio_hora_dia
             
-        # Si por alguna razón los precios son 0 (datos viejos), intentar usar propiedad compatibilidad
         if precio_base == 0 and hasattr(cancha, 'precio_hora') and cancha.precio_hora > 0:
             precio_base = cancha.precio_hora
 
         monto_total = precio_base * duracion_horas
 
-        # Recargo iluminación
         if usa_iluminacion:
-            # Usar constante o valor fijo
             recargo = 1000.0 * duracion_horas 
             monto_total += recargo
 
@@ -111,3 +107,48 @@ class ReservaService:
         if ReservaDAO.cambiar_estado(id_reserva, 'cancelada'):
             return True, "Reserva cancelada correctamente"
         return False, "Error al cancelar reserva"
+        
+    @staticmethod
+    def eliminar_fisicamente(id_reserva: int) -> bool:
+        """Elimina el registro de la BD (usado para rollbacks de reservas urgentes no pagadas)"""
+        return ReservaDAO.eliminar(id_reserva)
+
+    # --- NUEVA FUNCIONALIDAD: REGLA DE 24 HORAS ---
+
+    @staticmethod
+    def es_reserva_urgente(fecha_reserva: date, hora_inicio: time) -> bool:
+        """
+        Verifica si faltan menos de 24 horas para el inicio de la reserva.
+        """
+        ahora = datetime.now()
+        inicio_reserva = datetime.combine(fecha_reserva, hora_inicio)
+        diferencia = inicio_reserva - ahora
+        
+        # Si la diferencia es menor a 24 horas (o ya pasó), es urgente
+        return diferencia < timedelta(hours=24)
+
+    @staticmethod
+    def cancelar_pendientes_vencidas() -> int:
+        """
+        Busca reservas 'pendientes' que inicien en menos de 24 horas
+        y las cancela automáticamente.
+        Retorna la cantidad de reservas canceladas.
+        """
+        reservas = ReservaDAO.obtener_por_estado('pendiente')
+        canceladas = 0
+        ahora = datetime.now()
+        limite_urgencia = timedelta(hours=24)
+
+        for r in reservas:
+            # Construir fecha/hora inicio
+            inicio_reserva = datetime.combine(r.fecha_reserva, r.hora_inicio)
+            tiempo_restante = inicio_reserva - ahora
+            
+            # Si falta menos de 24hs (o ya pasó) y sigue pendiente, se cancela
+            if tiempo_restante < limite_urgencia:
+                r.estado_reserva = 'cancelada'
+                r.observaciones = (r.observaciones or "") + " [Cancelada por sistema: Falta de pago 24hs antes]"
+                ReservaDAO.actualizar(r)
+                canceladas += 1
+        
+        return canceladas

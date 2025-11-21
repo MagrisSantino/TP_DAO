@@ -1,5 +1,5 @@
 """
-Ventana de Gestión de Canchas
+Ventana de Gestión de Canchas - Estilo Moderno
 Actualizada: Mantiene el foco en la lista al realizar acciones.
 """
 
@@ -12,11 +12,17 @@ from dao.cancha_dao import CanchaDAO
 class CanchaWindow:
     """Ventana de gestión de canchas"""
     
+    # Colores del tema oscuro
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    SUBTITLE_COLOR = '#a0a0b0'
+    
     def __init__(self, parent):
         self.window = tk.Toplevel(parent)
         self.window.title("Gestión de Canchas")
         self.window.geometry("1100x650")
-        self.window.configure(bg='#f0f0f0')
+        self.window.configure(bg=self.BG_COLOR)
         
         self.cancha_seleccionada = None
         
@@ -34,23 +40,39 @@ class CanchaWindow:
     
     def crear_widgets(self):
         # Top frame
-        frame_top = tk.Frame(self.window, bg='#f0f0f0')
-        frame_top.pack(fill=tk.X, padx=20, pady=10)
+        frame_top = tk.Frame(self.window, bg=self.BG_COLOR)
+        frame_top.pack(fill=tk.X, padx=20, pady=15)
         
-        tk.Label(frame_top, text="🏟️ Gestión de Canchas", font=('Arial', 16, 'bold'), bg='#f0f0f0', fg='#2c3e50').pack(side=tk.LEFT)
+        tk.Label(frame_top, text="🏟️ Gestión de Canchas", font=('Segoe UI', 18, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(side=tk.LEFT)
         
-        btn_nueva = tk.Button(frame_top, text="➕ Nueva Cancha", command=self.nueva_cancha, bg='#3498db', fg='white', font=('Arial', 10, 'bold'), relief=tk.FLAT, padx=15, pady=5)
+        btn_nueva = tk.Button(frame_top, text="➕ Nueva Cancha", command=self.nueva_cancha, bg='#4a6fa5', fg='white', font=('Segoe UI', 10, 'bold'), relief=tk.FLAT, padx=20, pady=8, cursor='hand2')
         btn_nueva.pack(side=tk.RIGHT, padx=5)
         
-        btn_editar = tk.Button(frame_top, text="✏ Editar", command=self.editar_cancha, bg='#f39c12', fg='white', font=('Arial', 10, 'bold'), relief=tk.FLAT, padx=15, pady=5)
+        btn_editar = tk.Button(frame_top, text="✏ Editar", command=self.editar_cancha, bg='#8f6b4a', fg='white', font=('Segoe UI', 10, 'bold'), relief=tk.FLAT, padx=20, pady=8, cursor='hand2')
         btn_editar.pack(side=tk.RIGHT, padx=5)
         
-        btn_eliminar = tk.Button(frame_top, text="🗑 Eliminar", command=self.eliminar_cancha, bg='#e74c3c', fg='white', font=('Arial', 10, 'bold'), relief=tk.FLAT, padx=15, pady=5)
+        btn_eliminar = tk.Button(frame_top, text="🗑 Eliminar", command=self.eliminar_cancha, bg='#a04a4a', fg='white', font=('Segoe UI', 10, 'bold'), relief=tk.FLAT, padx=20, pady=8, cursor='hand2')
         btn_eliminar.pack(side=tk.RIGHT, padx=5)
         
         # Tabla
-        frame_tabla = tk.Frame(self.window, bg='#f0f0f0')
+        frame_tabla = tk.Frame(self.window, bg=self.CARD_BG)
         frame_tabla.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # Estilo para Treeview
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure("Treeview",
+                       background=self.CARD_BG,
+                       foreground=self.TEXT_COLOR,
+                       fieldbackground=self.CARD_BG,
+                       borderwidth=0,
+                       font=('Segoe UI', 10))
+        style.configure("Treeview.Heading",
+                       background='#3a3a4e',
+                       foreground=self.TEXT_COLOR,
+                       font=('Segoe UI', 10, 'bold'),
+                       borderwidth=0)
+        style.map('Treeview', background=[('selected', '#4a5f8f')])
         
         scrollbar = ttk.Scrollbar(frame_tabla)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -85,7 +107,6 @@ class CanchaWindow:
         self.tree.bind('<<TreeviewSelect>>', self.on_select)
 
     def cargar_canchas(self):
-        # Traer ventana al frente al recargar
         try:
             self.window.lift()
             self.window.focus_force()
@@ -143,13 +164,17 @@ class CanchaWindow:
 
 
 class NuevaCanchaDialog:
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    
     def __init__(self, parent, callback):
         self.parent = parent
         self.callback = callback
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Nueva Cancha")
         self.dialog.geometry("500x650")
-        self.dialog.configure(bg='#f0f0f0')
+        self.dialog.configure(bg=self.BG_COLOR)
         self.dialog.grab_set()
         
         self.dialog.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
@@ -166,52 +191,52 @@ class NuevaCanchaDialog:
         self.dialog.geometry(f'{ancho}x{alto}+{x}+{y}')
 
     def crear_formulario(self):
-        main = tk.Frame(self.dialog, bg='#f0f0f0', padx=20, pady=20)
+        main = tk.Frame(self.dialog, bg=self.BG_COLOR, padx=20, pady=20)
         main.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(main, text="Nueva Cancha", font=('Arial', 14, 'bold'), bg='#f0f0f0').pack(pady=(0, 20))
+        tk.Label(main, text="Nueva Cancha", font=('Segoe UI', 16, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(pady=(0, 20))
         
-        tk.Label(main, text="Nombre:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.entry_nombre = tk.Entry(main)
-        self.entry_nombre.pack(fill=tk.X, pady=(0, 5))
+        tk.Label(main, text="Nombre:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.entry_nombre = tk.Entry(main, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+        self.entry_nombre.pack(fill=tk.X, pady=(0, 10), ipady=5)
         
-        tk.Label(main, text="Deporte:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.cmb_deporte = ttk.Combobox(main, values=['Fútbol 5', 'Fútbol 7', 'Fútbol 11', 'Tenis', 'Padel', 'Basket'], state='readonly')
-        self.cmb_deporte.pack(fill=tk.X, pady=(0, 5))
+        tk.Label(main, text="Deporte:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.cmb_deporte = ttk.Combobox(main, values=['Fútbol 5', 'Fútbol 7', 'Fútbol 11', 'Tenis', 'Padel', 'Basket'], state='readonly', font=('Segoe UI', 10))
+        self.cmb_deporte.pack(fill=tk.X, pady=(0, 10), ipady=3)
         
-        tk.Label(main, text="Superficie:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.cmb_superficie = ttk.Combobox(main, values=['Césped Natural', 'Césped Sintético', 'Cemento', 'Polvo de Ladrillo', 'Parquet'], state='readonly')
-        self.cmb_superficie.pack(fill=tk.X, pady=(0, 5))
+        tk.Label(main, text="Superficie:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.cmb_superficie = ttk.Combobox(main, values=['Césped Natural', 'Césped Sintético', 'Cemento', 'Polvo de Ladrillo', 'Parquet'], state='readonly', font=('Segoe UI', 10))
+        self.cmb_superficie.pack(fill=tk.X, pady=(0, 10), ipady=3)
         self.cmb_superficie.set('Césped Sintético')
 
-        tk.Label(main, text="Capacidad (jugadores):", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.spin_capacidad = tk.Spinbox(main, from_=2, to=30)
-        self.spin_capacidad.pack(fill=tk.X, pady=(0, 5))
+        tk.Label(main, text="Capacidad (jugadores):", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.spin_capacidad = tk.Spinbox(main, from_=2, to=30, bg=self.CARD_BG, fg=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+        self.spin_capacidad.pack(fill=tk.X, pady=(0, 10), ipady=3)
         self.spin_capacidad.delete(0, tk.END)
         self.spin_capacidad.insert(0, 10)
         
-        frame_precios = tk.LabelFrame(main, text="Precios por Hora", bg='#f0f0f0', padx=10, pady=10)
+        frame_precios = tk.LabelFrame(main, text="Precios por Hora", bg=self.BG_COLOR, fg=self.TEXT_COLOR, padx=10, pady=10, font=('Segoe UI', 10, 'bold'))
         frame_precios.pack(fill=tk.X, pady=10)
         
-        tk.Label(frame_precios, text="Horario Día ($):", bg='#f0f0f0').pack(side=tk.LEFT)
-        self.entry_precio_dia = tk.Entry(frame_precios, width=10)
+        tk.Label(frame_precios, text="Horario Día ($):", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 9)).pack(side=tk.LEFT)
+        self.entry_precio_dia = tk.Entry(frame_precios, width=10, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT)
         self.entry_precio_dia.pack(side=tk.LEFT, padx=5)
         
-        tk.Label(frame_precios, text="Horario Noche ($):", bg='#f0f0f0').pack(side=tk.LEFT)
-        self.entry_precio_noche = tk.Entry(frame_precios, width=10)
+        tk.Label(frame_precios, text="Horario Noche ($):", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 9)).pack(side=tk.LEFT)
+        self.entry_precio_noche = tk.Entry(frame_precios, width=10, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT)
         self.entry_precio_noche.pack(side=tk.LEFT, padx=5)
         
         self.var_techo = tk.BooleanVar()
-        tk.Checkbutton(main, text="Es techada", variable=self.var_techo, bg='#f0f0f0').pack(anchor='w')
+        tk.Checkbutton(main, text="Es techada", variable=self.var_techo, bg=self.BG_COLOR, fg=self.TEXT_COLOR, selectcolor=self.CARD_BG, activebackground=self.BG_COLOR, activeforeground=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(anchor='w', pady=5)
         
         self.var_luz = tk.BooleanVar()
-        tk.Checkbutton(main, text="Tiene iluminación", variable=self.var_luz, bg='#f0f0f0').pack(anchor='w')
+        tk.Checkbutton(main, text="Tiene iluminación", variable=self.var_luz, bg=self.BG_COLOR, fg=self.TEXT_COLOR, selectcolor=self.CARD_BG, activebackground=self.BG_COLOR, activeforeground=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(anchor='w')
         
-        btn_frame = tk.Frame(main, bg='#f0f0f0', pady=20)
+        btn_frame = tk.Frame(main, bg=self.BG_COLOR, pady=20)
         btn_frame.pack(fill=tk.X)
         
-        tk.Button(btn_frame, text="Guardar", command=self.guardar, bg='#2ecc71', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
-        tk.Button(btn_frame, text="Cerrar", command=self.cerrar_ventana, bg='#95a5a6', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Guardar", command=self.guardar, bg='#45796e', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Cerrar", command=self.cerrar_ventana, bg='#5a6b7a', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
 
     def limpiar_formulario(self):
         self.entry_nombre.delete(0, tk.END)
@@ -264,6 +289,10 @@ class NuevaCanchaDialog:
 
 
 class EditarCanchaDialog:
+    BG_COLOR = '#1e1e2e'
+    CARD_BG = '#2a2a3e'
+    TEXT_COLOR = '#ffffff'
+    
     def __init__(self, parent, cancha, callback):
         self.parent = parent
         self.cancha = cancha
@@ -271,7 +300,7 @@ class EditarCanchaDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Editar Cancha")
         self.dialog.geometry("500x650")
-        self.dialog.configure(bg='#f0f0f0')
+        self.dialog.configure(bg=self.BG_COLOR)
         self.dialog.grab_set()
         
         self.dialog.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
@@ -289,53 +318,53 @@ class EditarCanchaDialog:
         self.dialog.geometry(f'{ancho}x{alto}+{x}+{y}')
 
     def crear_formulario(self):
-        main = tk.Frame(self.dialog, bg='#f0f0f0', padx=20, pady=20)
+        main = tk.Frame(self.dialog, bg=self.BG_COLOR, padx=20, pady=20)
         main.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(main, text="Editar Cancha", font=('Arial', 14, 'bold'), bg='#f0f0f0').pack(pady=(0, 10))
+        tk.Label(main, text="Editar Cancha", font=('Segoe UI', 16, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(pady=(0, 15))
         
-        tk.Label(main, text="Nombre:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.entry_nombre = tk.Entry(main)
-        self.entry_nombre.pack(fill=tk.X, pady=5)
+        tk.Label(main, text="Nombre:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.entry_nombre = tk.Entry(main, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+        self.entry_nombre.pack(fill=tk.X, pady=(0, 8), ipady=5)
         
-        tk.Label(main, text="Deporte:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.cmb_deporte = ttk.Combobox(main, values=['Fútbol 5', 'Fútbol 7', 'Fútbol 11', 'Tenis', 'Padel', 'Basket'], state='readonly')
-        self.cmb_deporte.pack(fill=tk.X, pady=5)
+        tk.Label(main, text="Deporte:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.cmb_deporte = ttk.Combobox(main, values=['Fútbol 5', 'Fútbol 7', 'Fútbol 11', 'Tenis', 'Padel', 'Basket'], state='readonly', font=('Segoe UI', 10))
+        self.cmb_deporte.pack(fill=tk.X, pady=(0, 8), ipady=3)
         
-        tk.Label(main, text="Superficie:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.cmb_superficie = ttk.Combobox(main, values=['Césped Natural', 'Césped Sintético', 'Cemento', 'Polvo de Ladrillo', 'Parquet'], state='readonly')
-        self.cmb_superficie.pack(fill=tk.X, pady=5)
+        tk.Label(main, text="Superficie:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.cmb_superficie = ttk.Combobox(main, values=['Césped Natural', 'Césped Sintético', 'Cemento', 'Polvo de Ladrillo', 'Parquet'], state='readonly', font=('Segoe UI', 10))
+        self.cmb_superficie.pack(fill=tk.X, pady=(0, 8), ipady=3)
 
-        tk.Label(main, text="Capacidad:", bg='#f0f0f0', anchor='w').pack(fill=tk.X)
-        self.spin_capacidad = tk.Spinbox(main, from_=2, to=30)
-        self.spin_capacidad.pack(fill=tk.X, pady=5)
+        tk.Label(main, text="Capacidad:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
+        self.spin_capacidad = tk.Spinbox(main, from_=2, to=30, bg=self.CARD_BG, fg=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
+        self.spin_capacidad.pack(fill=tk.X, pady=(0, 8), ipady=3)
 
-        frame_precios = tk.LabelFrame(main, text="Precios", bg='#f0f0f0', padx=5, pady=5)
+        frame_precios = tk.LabelFrame(main, text="Precios", bg=self.BG_COLOR, fg=self.TEXT_COLOR, padx=5, pady=5, font=('Segoe UI', 10, 'bold'))
         frame_precios.pack(fill=tk.X, pady=10)
         
-        tk.Label(frame_precios, text="Día ($):", bg='#f0f0f0').pack(side=tk.LEFT)
-        self.entry_precio_dia = tk.Entry(frame_precios, width=10)
+        tk.Label(frame_precios, text="Día ($):", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 9)).pack(side=tk.LEFT)
+        self.entry_precio_dia = tk.Entry(frame_precios, width=10, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT)
         self.entry_precio_dia.pack(side=tk.LEFT, padx=5)
         
-        tk.Label(frame_precios, text="Noche ($):", bg='#f0f0f0').pack(side=tk.LEFT)
-        self.entry_precio_noche = tk.Entry(frame_precios, width=10)
+        tk.Label(frame_precios, text="Noche ($):", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 9)).pack(side=tk.LEFT)
+        self.entry_precio_noche = tk.Entry(frame_precios, width=10, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT)
         self.entry_precio_noche.pack(side=tk.LEFT, padx=5)
         
         self.var_techo = tk.BooleanVar()
-        tk.Checkbutton(main, text="Es techada", variable=self.var_techo, bg='#f0f0f0').pack(anchor='w')
+        tk.Checkbutton(main, text="Es techada", variable=self.var_techo, bg=self.BG_COLOR, fg=self.TEXT_COLOR, selectcolor=self.CARD_BG, activebackground=self.BG_COLOR, activeforeground=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(anchor='w', pady=3)
         
         self.var_luz = tk.BooleanVar()
-        tk.Checkbutton(main, text="Tiene iluminación", variable=self.var_luz, bg='#f0f0f0').pack(anchor='w')
+        tk.Checkbutton(main, text="Tiene iluminación", variable=self.var_luz, bg=self.BG_COLOR, fg=self.TEXT_COLOR, selectcolor=self.CARD_BG, activebackground=self.BG_COLOR, activeforeground=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(anchor='w')
         
-        tk.Label(main, text="Estado:", bg='#f0f0f0', anchor='w').pack(fill=tk.X, pady=(10,0))
-        self.cmb_estado = ttk.Combobox(main, values=['disponible', 'mantenimiento', 'no_disponible'], state='readonly')
-        self.cmb_estado.pack(fill=tk.X, pady=5)
+        tk.Label(main, text="Estado:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X, pady=(10,0))
+        self.cmb_estado = ttk.Combobox(main, values=['disponible', 'mantenimiento', 'no_disponible'], state='readonly', font=('Segoe UI', 10))
+        self.cmb_estado.pack(fill=tk.X, pady=(0, 8), ipady=3)
 
-        btn_frame = tk.Frame(main, bg='#f0f0f0', pady=20)
+        btn_frame = tk.Frame(main, bg=self.BG_COLOR, pady=20)
         btn_frame.pack(fill=tk.X)
         
-        tk.Button(btn_frame, text="Actualizar", command=self.guardar, bg='#f39c12', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
-        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#95a5a6', fg='white', font=('Arial', 10, 'bold'), padx=20).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Actualizar", command=self.guardar, bg='#8f6b4a', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(btn_frame, text="Cancelar", command=self.cerrar_ventana, bg='#5a6b7a', fg='white', font=('Segoe UI', 11, 'bold'), padx=30, pady=10, relief=tk.FLAT, cursor='hand2').pack(side=tk.LEFT, expand=True, padx=5)
 
     def cargar_datos(self):
         self.entry_nombre.insert(0, self.cancha.nombre)

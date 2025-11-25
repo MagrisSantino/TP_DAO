@@ -1,6 +1,6 @@
 """
 Ventana de Gestión de Torneos - Estilo Moderno
-CORREGIDO: Mantiene el foco en el diálogo de alta tras errores y en la lista tras crear.
+CORREGIDO: Rollback automático si no se completa el pago al crear.
 """
 
 import tkinter as tk
@@ -9,6 +9,7 @@ from tkcalendar import DateEntry
 from datetime import date
 from business.torneo_service import TorneoService
 from business.cliente_service import ClienteService
+from business.pago_service import PagoService  # Necesario para verificar el pago
 from dao.torneo_dao import TorneoDAO
 from utils.helpers import formatear_monto, parsear_hora, formatear_hora
 from ui.pago_window import NuevoPagoDialog
@@ -74,8 +75,6 @@ class TorneoWindow:
         self.tree.bind('<<TreeviewSelect>>', self.on_select)
 
     def cargar_torneos(self):
-        # Esta función se llama al iniciar y como callback al crear
-        # Garantiza que la lista quede al frente al actualizarse
         try:
             self.window.lift()
             self.window.focus_force()
@@ -102,7 +101,7 @@ class TorneoWindow:
     def eliminar_torneo(self):
         if not self.torneo_seleccionado:
             messagebox.showwarning("Alerta", "Seleccione un torneo")
-            self.window.lift() # Mantener foco si hubo alerta
+            self.window.lift()
             return
         if messagebox.askyesno("Confirmar", "¿Cancelar torneo y liberar canchas?"):
             exito, msg = TorneoService.eliminar_torneo(self.torneo_seleccionado)
@@ -140,7 +139,7 @@ class NuevoTorneoDialog:
         main.pack(fill=tk.BOTH, expand=True)
         tk.Label(main, text="Organizar Torneo", font=('Segoe UI', 16, 'bold'), bg=self.BG_COLOR, fg=self.TEXT_COLOR).pack(pady=(0, 15))
         
-        # 1. Fecha (Día único) - MOVIDO ARRIBA
+        # 1. Fecha
         tk.Label(main, text="Fecha (Día único):", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
         self.date_fecha = DateEntry(main, width=20, background='#4a6fa5', foreground='white', borderwidth=2, font=('Segoe UI', 10))
         self.date_fecha.pack(fill=tk.X, pady=(0, 10))
@@ -152,7 +151,7 @@ class NuevoTorneoDialog:
         clientes = ClienteService.obtener_clientes_activos()
         self.cmb_cliente['values'] = [f"{c.id_cliente} - {c.nombre} {c.apellido}" for c in clientes]
         
-        # 3. Nombre del Torneo
+        # 3. Nombre
         tk.Label(main, text="Nombre del Torneo:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
         self.entry_nombre = tk.Entry(main, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
         self.entry_nombre.pack(fill=tk.X, pady=(0, 10), ipady=5)
@@ -162,7 +161,7 @@ class NuevoTorneoDialog:
         self.cmb_deporte = ttk.Combobox(main, values=['Fútbol 5', 'Fútbol 7', 'Fútbol 11', 'Tenis', 'Padel', 'Basket'], state='readonly', font=('Segoe UI', 10))
         self.cmb_deporte.pack(fill=tk.X, pady=(0, 10), ipady=3)
         
-        # 5. Hora Inicio y Fin
+        # 5. Horarios
         frame_hora = tk.Frame(main, bg=self.BG_COLOR)
         frame_hora.pack(fill=tk.X, pady=(0, 10))
         tk.Label(frame_hora, text="Hora Inicio:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, font=('Segoe UI', 10)).pack(side=tk.LEFT)
@@ -172,12 +171,12 @@ class NuevoTorneoDialog:
         self.entry_h_fin = tk.Entry(frame_hora, width=8, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT)
         self.entry_h_fin.pack(side=tk.LEFT, padx=5)
         
-        # 6. Cantidad Canchas
+        # 6. Cantidad
         tk.Label(main, text="Cantidad Canchas:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
         self.spin_canchas = tk.Spinbox(main, from_=1, to=20, bg=self.CARD_BG, fg=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
         self.spin_canchas.pack(fill=tk.X, pady=(0, 10), ipady=3)
         
-        # 7. Precio Total
+        # 7. Precio
         tk.Label(main, text="Precio Total:", bg=self.BG_COLOR, fg=self.TEXT_COLOR, anchor='w', font=('Segoe UI', 10)).pack(fill=tk.X)
         self.entry_precio = tk.Entry(main, bg=self.CARD_BG, fg=self.TEXT_COLOR, insertbackground=self.TEXT_COLOR, font=('Segoe UI', 10), relief=tk.FLAT, borderwidth=2)
         self.entry_precio.pack(fill=tk.X, pady=(0, 10), ipady=5)
@@ -207,7 +206,6 @@ class NuevoTorneoDialog:
             cliente_sel = self.cmb_cliente.get()
             if not cliente_sel:
                 messagebox.showwarning("Alerta", "Seleccione un organizador")
-                # Forzar foco en el diálogo tras la alerta
                 self.dialog.lift()
                 self.dialog.focus_force()
                 return
@@ -226,19 +224,34 @@ class NuevoTorneoDialog:
                 self.dialog.lift()
                 self.dialog.focus_force()
                 return
-                
+            
+            # 1. Intentar crear el torneo
             exito, msg, torneo = TorneoService.crear_torneo(id_cliente, nombre, deporte, fecha, h_ini, h_fin, cant, precio)
             
             if exito:
-                messagebox.showinfo("Éxito", msg)
-                # Actualiza la lista de fondo (callback) para que al cerrar pago se vea
-                self.callback() 
-                self.dialog.destroy() 
-                # Abre el pago
-                NuevoPagoDialog(self.parent, id_reserva=None, callback=self.callback, id_torneo=torneo.id_torneo)
+                # 2. Cerrar ventana de creación y abrir pago
+                self.dialog.destroy()
+                
+                # 3. Abrir diálogo de pago y ESPERAR (wait_window)
+                # Usamos 'self.parent' como master porque 'self.dialog' ya se destruyó
+                pago_dialog = NuevoPagoDialog(self.parent, id_reserva=None, callback=self.callback, id_torneo=torneo.id_torneo)
+                self.parent.wait_window(pago_dialog.dialog)
+                
+                # 4. VERIFICAR PAGO OBLIGATORIO
+                pagado = PagoService.obtener_monto_pagado_torneo(torneo.id_torneo)
+                
+                # Tolerancia pequeña por temas de float
+                if pagado < (torneo.precio_total - 0.1):
+                    # ROLLBACK: No pagó, se elimina el torneo
+                    TorneoService.eliminar_torneo(torneo.id_torneo)
+                    messagebox.showwarning("Operación Cancelada", "El torneo fue eliminado porque no se completó el pago.")
+                    self.callback() # Actualizar lista (para asegurar que no aparezca)
+                else:
+                    # ÉXITO TOTAL
+                    messagebox.showinfo("Éxito", f"{msg}\nPago registrado correctamente.")
+                    self.callback()
             else:
                 messagebox.showerror("Error", msg)
-                # IMPORTANTE: Si hay error, mantenemos el diálogo de alta arriba
                 self.dialog.lift()
                 self.dialog.focus_force()
                 

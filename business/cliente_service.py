@@ -4,7 +4,7 @@ Servicio de Cliente
 from typing import List, Tuple, Optional
 from models.cliente import Cliente
 from dao.cliente_dao import ClienteDAO
-from utils.validaciones import validar_dni, validar_email
+from utils.validaciones import validar_dni, validar_email, validar_telefono
 
 class ClienteService:
     
@@ -18,7 +18,10 @@ class ClienteService:
             
         if email and not validar_email(email):
             return False, "Email inválido", None
-            
+        
+        if telefono and not validar_telefono(telefono):
+            return False, "Telefono invalido", None
+
         nuevo_cliente = Cliente(nombre=nombre, apellido=apellido, dni=dni, telefono=telefono, email=email)
         id_gen = ClienteDAO.insertar(nuevo_cliente)
         
